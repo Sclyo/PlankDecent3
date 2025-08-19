@@ -1,4 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
+
+// Web Speech API types
+declare global {
+  interface Window {
+    webkitSpeechRecognition: any;
+    SpeechRecognition: any;
+  }
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: (event: any) => void;
+  onstart: () => void;
+  onend: () => void;
+  onerror: (event: any) => void;
+}
 import { useRoute, useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
@@ -33,9 +53,14 @@ export default function Coaching() {
   const [lastFeedbackTime, setLastFeedbackTime] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
   const [lastAnnouncementTime, setLastAnnouncementTime] = useState(0);
+  const [fullBodyDetected, setFullBodyDetected] = useState(false);
+  const [plankTypeDetected, setPlankTypeDetected] = useState(false);
+  const [detectedPlankType, setDetectedPlankType] = useState<'high' | 'elbow' | 'unknown'>('unknown');
+  const [isListening, setIsListening] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionStartTime = useRef<number>(0);
   const analysisDataRef = useRef<any[]>([]);
+  const recognitionRef = useRef<any>(null);
 
   const { currentAnalysis, currentLandmarks, processResults, startAnalysis, stopAnalysis } = usePoseAnalysis({
     onAnalysisUpdate: (analysis) => {
@@ -51,17 +76,37 @@ export default function Coaching() {
         overallScore: analysis.overallScore,
         bodyAlignment: analysis.bodyAlignmentScore,
         hasStarted,
-        landmarks: landmarks.length
+        landmarks: currentLandmarks.length
       });
       
-      // Auto-start timer when good pose detected (lowered threshold)
-      if (!hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 30) {
+      // Staged detection flow: Full body -> Plank type -> Timer start
+      const hasGoodScores = analysis.bodyAlignmentScore >= 30 && 
+                           analysis.kneePositionScore >= 30 && 
+                           analysis.shoulderStackScore >= 30;
+      
+      // Step 1: Detect full body
+      if (!fullBodyDetected && hasGoodScores && currentLandmarks.length > 0) {
+        console.log('🎯 FULL BODY DETECTED!');
+        setFullBodyDetected(true);
+        speak('Full body identified', 'high');
+      }
+      
+      // Step 2: Detect plank type
+      if (fullBodyDetected && !plankTypeDetected && analysis.plankType !== 'unknown') {
+        console.log(`🎯 PLANK TYPE DETECTED: ${analysis.plankType}`);
+        setPlankTypeDetected(true);
+        setDetectedPlankType(analysis.plankType);
+        speak(`Plank type: ${analysis.plankType}`, 'high');
+      }
+      
+      // Step 3: Start timer
+      if (fullBodyDetected && plankTypeDetected && !hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 30) {
         console.log(`🎯 STARTING SESSION! Plank: ${analysis.plankType}, Score: ${analysis.overallScore}`);
         setHasStarted(true);
         setIsRunning(true);
         sessionStartTime.current = Date.now();
         setLastAnnouncementTime(Date.now());
-        speak(`Perfect! ${analysis.plankType} plank detected. Session started!`, 'high');
+        speak('Timer started', 'high');
       }
       
       // Send real-time data via WebSocket
@@ -143,6 +188,76 @@ export default function Coaching() {
     startAnalysis();
     return () => stopAnalysis();
   }, [startAnalysis, stopAnalysis]);
+
+  // Voice recognition setup
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      
+      recognition.onresult = (event: any) => {
+        const last = event.results.length - 1;
+        const transcript = event.results[last][0].transcript.toLowerCase().trim();
+        
+        console.log('Voice command:', transcript);
+        
+        if (transcript.includes('stop')) {
+          console.log('Stop command detected');
+          handleStop();
+        }
+      };
+      
+      recognition.onstart = () => {
+        setIsListening(true);
+        console.log('Voice recognition started');
+      };
+      
+      recognition.onend = () => {
+        setIsListening(false);
+        console.log('Voice recognition ended');
+        // Restart recognition if session is running
+        if (hasStarted && isRunning) {
+          setTimeout(() => {
+            try {
+              recognition.start();
+            } catch (error) {
+              console.log('Recognition restart failed:', error);
+            }
+          }, 100);
+        }
+      };
+      
+      recognition.onerror = (event: any) => {
+        console.error('Voice recognition error:', event.error);
+        setIsListening(false);
+      };
+      
+      recognitionRef.current = recognition;
+    }
+  }, [hasStarted, isRunning]);
+
+  // Start/stop voice recognition based on session state
+  useEffect(() => {
+    if (recognitionRef.current) {
+      if (hasStarted && isRunning && voiceEnabled) {
+        try {
+          recognitionRef.current.start();
+        } catch (error) {
+          console.log('Recognition start failed:', error);
+        }
+      } else {
+        try {
+          recognitionRef.current.stop();
+        } catch (error) {
+          console.log('Recognition stop failed:', error);
+        }
+      }
+    }
+  }, [hasStarted, isRunning, voiceEnabled]);
 
   // Voice feedback for critical issues
   useEffect(() => {
@@ -286,18 +401,18 @@ export default function Coaching() {
             </div>
           </Card>
           
-          {/* Plank Type */}
-          {session && (
-            <Card className="bg-surface/80 backdrop-blur-sm px-4 py-2">
-              <div className="text-white">
-                <span className="text-sm text-gray-300">Detected: </span>
-                <span className="font-semibold text-success">
-                  {currentAnalysis?.plankType === 'high' ? 'High Plank' : 
-                   currentAnalysis?.plankType === 'elbow' ? 'Elbow Plank' : 'Detecting...'}
-                </span>
-              </div>
-            </Card>
-          )}
+          {/* Detection Status */}
+          <Card className="bg-surface/80 backdrop-blur-sm px-4 py-2">
+            <div className="text-white">
+              <span className="text-sm text-gray-300">Status: </span>
+              <span className="font-semibold text-success">
+                {!fullBodyDetected ? 'Detecting body...' :
+                 !plankTypeDetected ? 'Detecting plank type...' :
+                 !hasStarted ? 'Ready to start' :
+                 detectedPlankType === 'high' ? 'High Plank' : 'Elbow Plank'}
+              </span>
+            </div>
+          </Card>
         </div>
 
         {/* Voice Feedback Toggle */}
@@ -375,10 +490,14 @@ export default function Coaching() {
           <Card className="bg-blue-500/90 backdrop-blur-sm p-4 mb-4 text-center">
             <div className="flex items-center justify-center space-x-2">
               <span className="font-medium text-white">
-                {currentLandmarks.length > 0 
-                  ? `${currentAnalysis?.plankType === 'unknown' ? 'Get in plank position' : `${currentAnalysis?.plankType} plank detected - hold position!`}`
-                  : 'Position yourself in camera view'}
+                {currentLandmarks.length === 0 ? 'Position yourself in camera view' :
+                 !fullBodyDetected ? 'Stand where your full body is visible' :
+                 !plankTypeDetected ? 'Get in plank position' :
+                 'Hold position - timer will start soon!'}
               </span>
+              {isListening && hasStarted && (
+                <span className="text-xs text-gray-300 ml-2">(Say "stop" to end)</span>
+              )}
             </div>
           </Card>
         ) : currentAnalysis?.feedback && currentAnalysis.feedback.length > 0 && (
