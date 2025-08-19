@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 interface VoiceFeedbackOptions {
   enabled?: boolean;
@@ -17,12 +17,12 @@ export function useVoiceFeedback(options: VoiceFeedbackOptions = {}) {
   const messageTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Initialize speech synthesis
-  useState(() => {
+  useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       synthRef.current = window.speechSynthesis;
       setIsSupported(true);
     }
-  });
+  }, []);
 
   const speak = useCallback((message: string, priority: 'low' | 'medium' | 'high' = 'medium') => {
     if (!isEnabled || !isSupported || !synthRef.current || !message.trim()) {
@@ -91,7 +91,7 @@ export function useVoiceFeedback(options: VoiceFeedbackOptions = {}) {
   }, [isEnabled]);
 
   // Cleanup on unmount
-  useState(() => {
+  useEffect(() => {
     return () => {
       if (messageTimeoutRef.current) {
         clearTimeout(messageTimeoutRef.current);
@@ -100,7 +100,7 @@ export function useVoiceFeedback(options: VoiceFeedbackOptions = {}) {
         synthRef.current.cancel();
       }
     };
-  });
+  }, []);
 
   return {
     isEnabled,

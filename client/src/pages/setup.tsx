@@ -141,7 +141,7 @@ export default function Setup() {
               />
               <PoseOverlay 
                 landmarks={currentLandmarks}
-                videoElement={null}
+                videoElement={undefined}
                 className="absolute inset-0 pointer-events-none"
               />
             </div>
