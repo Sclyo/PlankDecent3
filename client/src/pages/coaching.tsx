@@ -79,10 +79,10 @@ export default function Coaching() {
         landmarks: currentLandmarks.length
       });
       
-      // Detection flow: When three indicators are green (90+), detect full body AND plank type immediately
-      const hasGoodScores = analysis.bodyAlignmentScore >= 90 && 
-                           analysis.kneePositionScore >= 90 && 
-                           analysis.shoulderStackScore >= 90;
+      // Detection flow: When three indicators are green (70+), detect full body AND plank type immediately
+      const hasGoodScores = analysis.bodyAlignmentScore >= 70 && 
+                           analysis.kneePositionScore >= 70 && 
+                           analysis.shoulderStackScore >= 70;
       
       // Step 1: Detect full body AND plank type simultaneously when indicators are green
       if (!fullBodyDetected && hasGoodScores && currentLandmarks.length > 0 && analysis.plankType !== 'unknown') {
@@ -99,7 +99,7 @@ export default function Coaching() {
       }
       
       // Step 2: Start timer
-      if (fullBodyDetected && plankTypeDetected && !hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 70) {
+      if (fullBodyDetected && plankTypeDetected && !hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 50) {
         console.log(`🎯 STARTING SESSION! Plank: ${analysis.plankType}, Score: ${analysis.overallScore}`);
         setHasStarted(true);
         setIsRunning(true);
@@ -192,7 +192,7 @@ export default function Coaching() {
     return () => stopAnalysis();
   }, [startAnalysis, stopAnalysis]);
 
-  // Voice recognition setup
+  // Voice recognition setup and management
   useEffect(() => {
     if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
       const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
@@ -202,27 +202,34 @@ export default function Coaching() {
       recognition.interimResults = false;
       recognition.lang = 'en-US';
       
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  // Voice command handler for stop
+  useEffect(() => {
+    if (recognitionRef.current && hasStarted && isRunning && voiceEnabled) {
+      const recognition = recognitionRef.current;
+      
       recognition.onresult = (event: any) => {
         const last = event.results.length - 1;
         const transcript = event.results[last][0].transcript.toLowerCase().trim();
-        
-        console.log('Voice command:', transcript);
+        console.log('Voice command detected:', transcript);
         
         if (transcript.includes('stop')) {
-          console.log('Stop command detected');
+          console.log('Stop command recognized - ending session');
           handleStop();
         }
       };
       
       recognition.onstart = () => {
         setIsListening(true);
-        console.log('Voice recognition started');
+        console.log('Voice recognition active');
       };
       
       recognition.onend = () => {
         setIsListening(false);
-        console.log('Voice recognition ended');
-        // Restart recognition if session is running
+        // Restart if still in session
         if (hasStarted && isRunning) {
           setTimeout(() => {
             try {
@@ -230,7 +237,7 @@ export default function Coaching() {
             } catch (error) {
               console.log('Recognition restart failed:', error);
             }
-          }, 100);
+          }, 500);
         }
       };
       
@@ -239,43 +246,28 @@ export default function Coaching() {
         setIsListening(false);
       };
       
-      recognitionRef.current = recognition;
+      try {
+        recognition.start();
+      } catch (error) {
+        console.log('Could not start voice recognition:', error);
+      }
+    } else if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (error) {
+        console.log('Could not stop voice recognition:', error);
+      }
     }
-  }, []);
 
-  // Voice command handler 
-  const handleVoiceCommand = (transcript: string) => {
-    if (transcript.includes('stop')) {
-      console.log('Stop command detected via voice');
-      handleStop();
-    }
-  };
-
-  // Start/stop voice recognition based on session state
-  useEffect(() => {
-    if (recognitionRef.current) {
-      // Update the recognition handler with current handleStop
-      recognitionRef.current.onresult = (event: any) => {
-        const last = event.results.length - 1;
-        const transcript = event.results[last][0].transcript.toLowerCase().trim();
-        console.log('Voice command:', transcript);
-        handleVoiceCommand(transcript);
-      };
-
-      if (hasStarted && isRunning && voiceEnabled) {
-        try {
-          recognitionRef.current.start();
-        } catch (error) {
-          console.log('Recognition start failed:', error);
-        }
-      } else {
+    return () => {
+      if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
         } catch (error) {
-          console.log('Recognition stop failed:', error);
+          console.log('Cleanup stop failed:', error);
         }
       }
-    }
+    };
   }, [hasStarted, isRunning, voiceEnabled]);
 
   // Voice feedback for critical issues
@@ -391,7 +383,7 @@ export default function Coaching() {
   }
 
   return (
-    <div className="h-screen w-screen bg-dark-bg relative flex items-center justify-center overflow-hidden">
+    <div className="h-screen w-screen bg-dark-bg relative overflow-hidden">
       {/* Camera Feed */}
       <div className="absolute inset-0 bg-gray-900">
         <CameraFeed 
@@ -408,28 +400,30 @@ export default function Coaching() {
       </div>
 
       {/* Top Status Bar */}
-      <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-20">
-        <div className="flex items-center space-x-3">
+      <div className="absolute top-2 left-2 right-2 flex justify-between items-center z-20">
+        <div className="flex items-center space-x-2">
           {/* Session Timer */}
-          <Card className="bg-surface/80 backdrop-blur-sm px-4 py-2">
-            <div className="flex items-center space-x-2">
-              <Clock className="w-4 h-4 text-success" />
-              <span className="font-medium text-lg text-white">
+          <Card className="bg-surface/80 backdrop-blur-sm px-3 py-1">
+            <div className="flex items-center space-x-1">
+              <Clock className="w-3 h-3 text-success" />
+              <span className="font-medium text-sm text-white">
                 {formatTime(sessionTime)}
               </span>
             </div>
           </Card>
           
           {/* Detection Status */}
-          <Card className="bg-surface/80 backdrop-blur-sm px-4 py-2">
-            <div className="text-white">
-              <span className="text-sm text-gray-300">Status: </span>
+          <Card className="bg-surface/80 backdrop-blur-sm px-3 py-1">
+            <div className="text-white text-xs">
               <span className="font-semibold text-success">
-                {!fullBodyDetected ? 'Detecting body...' :
-                 !plankTypeDetected ? 'Detecting plank type...' :
-                 !hasStarted ? 'Ready to start' :
+                {!fullBodyDetected ? 'Detecting...' :
+                 !plankTypeDetected ? 'Plank type...' :
+                 !hasStarted ? 'Ready' :
                  detectedPlankType === 'high' ? 'High Plank' : 'Elbow Plank'}
               </span>
+              {isListening && hasStarted && (
+                <span className="ml-1 text-gray-300">(Say "stop")</span>
+              )}
             </div>
           </Card>
         </div>
@@ -438,112 +432,85 @@ export default function Coaching() {
         <Button
           onClick={toggleVoice}
           variant="ghost"
-          size="icon"
-          className="bg-surface/80 backdrop-blur-sm hover:bg-surface-light/80"
+          size="sm"
+          className="bg-surface/80 backdrop-blur-sm hover:bg-surface-light/80 p-2"
         >
           {voiceEnabled ? (
-            <Volume2 className="w-5 h-5 text-success" />
+            <Volume2 className="w-4 h-4 text-success" />
           ) : (
-            <VolumeX className="w-5 h-5 text-gray-400" />
+            <VolumeX className="w-4 h-4 text-gray-400" />
           )}
         </Button>
       </div>
 
-      {/* Left Side - Metrics */}
+      {/* Horizontal Metrics Bar - Top */}
       {currentAnalysis && (
-        <MetricsPanel
-          bodyAlignmentScore={currentAnalysis.bodyAlignmentScore}
-          kneePositionScore={currentAnalysis.kneePositionScore}
-          shoulderStackScore={currentAnalysis.shoulderStackScore}
-          bodyAlignmentAngle={currentAnalysis.bodyAlignmentAngle}
-          kneeAngle={currentAnalysis.kneeAngle}
-          shoulderStackAngle={currentAnalysis.shoulderStackAngle}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 rotate-90 z-20"
-        />
-      )}
-
-      {/* Right Side - Overall Score */}
-      {currentAnalysis && (
-        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 rotate-90 z-20">
-          <Card className="bg-surface/80 backdrop-blur-sm p-6 text-center min-w-[180px]">
-            <div className="text-sm text-gray-300 mb-2">Overall Score</div>
-            <div className="relative mb-4">
-              <svg className="w-24 h-24 transform -rotate-90 mx-auto" viewBox="0 0 100 100">
-                <circle 
-                  cx="50" 
-                  cy="50" 
-                  r="40" 
-                  stroke="#334155" 
-                  strokeWidth="8" 
-                  fill="none"
-                />
-                <circle 
-                  cx="50" 
-                  cy="50" 
-                  r="40" 
-                  stroke="#1DB584" 
-                  strokeWidth="8" 
-                  fill="none"
-                  strokeDasharray="251.2"
-                  strokeDashoffset={calculateStrokeDashoffset(currentAnalysis.overallScore)}
-                  className="transition-all duration-500"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`text-3xl font-bold ${getOverallScoreColor(currentAnalysis.overallScore)}`}>
-                  {currentAnalysis.overallScore}
-                </span>
+        <div className="absolute top-16 left-2 right-2 z-20">
+          <div className="flex justify-between space-x-2">
+            <Card className="bg-surface/80 backdrop-blur-sm p-2 flex-1 text-center">
+              <div className="text-xs text-gray-300">Body</div>
+              <div className={`text-lg font-bold ${currentAnalysis.bodyAlignmentScore >= 70 ? 'text-success' : 'text-error'}`}>
+                {currentAnalysis.bodyAlignmentScore}
               </div>
-            </div>
-            <div className="text-xs text-gray-400">
-              {getScoreStatus(currentAnalysis.overallScore)}
-            </div>
-          </Card>
+            </Card>
+            <Card className="bg-surface/80 backdrop-blur-sm p-2 flex-1 text-center">
+              <div className="text-xs text-gray-300">Knee</div>
+              <div className={`text-lg font-bold ${currentAnalysis.kneePositionScore >= 70 ? 'text-success' : 'text-error'}`}>
+                {currentAnalysis.kneePositionScore}
+              </div>
+            </Card>
+            <Card className="bg-surface/80 backdrop-blur-sm p-2 flex-1 text-center">
+              <div className="text-xs text-gray-300">Shoulder</div>
+              <div className={`text-lg font-bold ${currentAnalysis.shoulderStackScore >= 70 ? 'text-success' : 'text-error'}`}>
+                {currentAnalysis.shoulderStackScore}
+              </div>
+            </Card>
+            <Card className="bg-surface/80 backdrop-blur-sm p-2 flex-1 text-center">
+              <div className="text-xs text-gray-300">Overall</div>
+              <div className={`text-lg font-bold ${getOverallScoreColor(currentAnalysis.overallScore)}`}>
+                {currentAnalysis.overallScore}
+              </div>
+            </Card>
+          </div>
         </div>
       )}
 
       {/* Bottom - Feedback & Controls */}
-      <div className="absolute bottom-4 left-4 right-4 z-20">
+      <div className="absolute bottom-2 left-2 right-2 z-20">
         {/* Live Feedback or Getting Ready Message */}
         {!hasStarted ? (
-          <Card className="bg-blue-500/90 backdrop-blur-sm p-4 mb-4 text-center">
-            <div className="flex items-center justify-center space-x-2">
-              <span className="font-medium text-white">
-                {currentLandmarks.length === 0 ? 'Position yourself in camera view' :
-                 !fullBodyDetected ? 'Stand where your full body is visible' :
-                 !plankTypeDetected ? 'Get in plank position' :
-                 'Hold position - timer will start soon!'}
-              </span>
-              {isListening && hasStarted && (
-                <span className="text-xs text-gray-300 ml-2">(Say "stop" to end)</span>
-              )}
+          <Card className="bg-blue-500/90 backdrop-blur-sm p-3 mb-3 text-center">
+            <div className="text-white text-sm">
+              {currentLandmarks.length === 0 ? 'Position yourself in camera view' :
+               !fullBodyDetected ? 'Stand where your full body is visible' :
+               !plankTypeDetected ? 'Get in plank position' :
+               'Hold position - timer will start soon!'}
             </div>
           </Card>
         ) : currentAnalysis?.feedback && currentAnalysis.feedback.length > 0 && (
-          <Card className="bg-warning/90 backdrop-blur-sm p-4 mb-4 text-center">
-            <div className="flex items-center justify-center space-x-2">
-              <span className="font-medium text-black">
-                {currentAnalysis.feedback[0]}
-              </span>
+          <Card className="bg-warning/90 backdrop-blur-sm p-3 mb-3 text-center">
+            <div className="text-black text-sm font-medium">
+              {currentAnalysis.feedback[0]}
             </div>
           </Card>
         )}
 
         {/* Control Buttons */}
-        <div className="flex justify-center space-x-6">
+        <div className="flex justify-center space-x-4">
           <Button
             onClick={handlePauseResume}
             variant="ghost"
-            className="bg-surface/80 backdrop-blur-sm hover:bg-surface-light/80 px-8 py-4"
+            size="sm"
+            className="bg-surface/80 backdrop-blur-sm hover:bg-surface-light/80 px-4 py-2"
           >
             {isRunning ? (
               <>
-                <Pause className="w-5 h-5 mr-2" />
+                <Pause className="w-4 h-4 mr-1" />
                 Pause
               </>
             ) : (
               <>
-                <Play className="w-5 h-5 mr-2" />
+                <Play className="w-4 h-4 mr-1" />
                 Resume
               </>
             )}
@@ -551,23 +518,13 @@ export default function Coaching() {
 
           <Button
             onClick={handleStop}
-            className="bg-error/80 backdrop-blur-sm hover:bg-error px-8 py-4"
+            size="sm"
+            className="bg-error/80 backdrop-blur-sm hover:bg-error px-4 py-2"
           >
-            <Square className="w-5 h-5 mr-2" />
+            <Square className="w-4 h-4 mr-1" />
             Stop
           </Button>
         </div>
-      </div>
-
-      {/* Connection Status */}
-      <div className="absolute top-1/2 right-4 transform translate-y-16 z-10">
-        <Card className="bg-surface/60 backdrop-blur-sm p-2" title="Connection Status">
-          {isConnected ? (
-            <Wifi className="w-4 h-4 text-success" />
-          ) : (
-            <WifiOff className="w-4 h-4 text-error" />
-          )}
-        </Card>
       </div>
     </div>
   );
