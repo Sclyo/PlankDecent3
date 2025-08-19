@@ -79,10 +79,10 @@ export default function Coaching() {
         landmarks: currentLandmarks.length
       });
       
-      // Detection flow: When three indicators are green, detect full body AND plank type immediately
-      const hasGoodScores = analysis.bodyAlignmentScore >= 30 && 
-                           analysis.kneePositionScore >= 30 && 
-                           analysis.shoulderStackScore >= 30;
+      // Detection flow: When three indicators are green (90+), detect full body AND plank type immediately
+      const hasGoodScores = analysis.bodyAlignmentScore >= 90 && 
+                           analysis.kneePositionScore >= 90 && 
+                           analysis.shoulderStackScore >= 90;
       
       // Step 1: Detect full body AND plank type simultaneously when indicators are green
       if (!fullBodyDetected && hasGoodScores && currentLandmarks.length > 0 && analysis.plankType !== 'unknown') {
@@ -99,7 +99,7 @@ export default function Coaching() {
       }
       
       // Step 2: Start timer
-      if (fullBodyDetected && plankTypeDetected && !hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 30) {
+      if (fullBodyDetected && plankTypeDetected && !hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 70) {
         console.log(`🎯 STARTING SESSION! Plank: ${analysis.plankType}, Score: ${analysis.overallScore}`);
         setHasStarted(true);
         setIsRunning(true);
@@ -241,11 +241,27 @@ export default function Coaching() {
       
       recognitionRef.current = recognition;
     }
-  }, [hasStarted, isRunning]);
+  }, []);
+
+  // Voice command handler 
+  const handleVoiceCommand = (transcript: string) => {
+    if (transcript.includes('stop')) {
+      console.log('Stop command detected via voice');
+      handleStop();
+    }
+  };
 
   // Start/stop voice recognition based on session state
   useEffect(() => {
     if (recognitionRef.current) {
+      // Update the recognition handler with current handleStop
+      recognitionRef.current.onresult = (event: any) => {
+        const last = event.results.length - 1;
+        const transcript = event.results[last][0].transcript.toLowerCase().trim();
+        console.log('Voice command:', transcript);
+        handleVoiceCommand(transcript);
+      };
+
       if (hasStarted && isRunning && voiceEnabled) {
         try {
           recognitionRef.current.start();
@@ -442,13 +458,13 @@ export default function Coaching() {
           bodyAlignmentAngle={currentAnalysis.bodyAlignmentAngle}
           kneeAngle={currentAnalysis.kneeAngle}
           shoulderStackAngle={currentAnalysis.shoulderStackAngle}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20"
+          className="absolute left-4 top-1/2 transform -translate-y-1/2 rotate-90 z-20"
         />
       )}
 
       {/* Right Side - Overall Score */}
       {currentAnalysis && (
-        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20">
+        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 rotate-90 z-20">
           <Card className="bg-surface/80 backdrop-blur-sm p-6 text-center min-w-[180px]">
             <div className="text-sm text-gray-300 mb-2">Overall Score</div>
             <div className="relative mb-4">
