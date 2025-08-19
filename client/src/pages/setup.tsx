@@ -45,16 +45,17 @@ export default function Setup() {
     if (currentAnalysis) {
       const { plankType } = currentAnalysis;
       
-      // Improved distance and visibility checks
-      const hasValidLandmarks = currentAnalysis.bodyAlignmentScore > 0 || 
-                               currentAnalysis.kneePositionScore > 0 || 
-                               currentAnalysis.shoulderStackScore > 0;
+      // PROPER distance check - all scores must be decent (not just > 0)
+      const hasGoodScores = currentAnalysis.bodyAlignmentScore >= 30 && 
+                           currentAnalysis.kneePositionScore >= 30 && 
+                           currentAnalysis.shoulderStackScore >= 30;
       
-      // More lenient distance check - at least some pose data
-      const distance = hasValidLandmarks;
+      // Distance is good if we have meaningful pose analysis scores
+      const distance = hasGoodScores;
       
-      // Body visible if we can detect plank type and have some landmark data
-      const bodyVisible = plankType !== 'unknown' && hasValidLandmarks;
+      // Body visible requires plank detection AND good scoring on all metrics
+      const bodyVisible = (plankType === 'high' || plankType === 'elbow') && 
+                         hasGoodScores;
       
       const newChecks = {
         distance,
@@ -64,7 +65,7 @@ export default function Setup() {
       
       setSetupChecks(newChecks);
       
-      // All conditions met
+      // All conditions must be genuinely met
       const ready = distance && bodyVisible && (plankType === 'high' || plankType === 'elbow');
       if (ready !== isReady) {
         setIsReady(ready);
@@ -155,7 +156,7 @@ export default function Setup() {
                   <div>
                     <p className="font-medium text-white text-sm">Distance</p>
                     <p className="text-xs text-gray-400">
-                      {setupChecks.distance ? 'Good distance' : 'Move to 2-3 meters'}
+                      {setupChecks.distance ? 'Good distance' : 'Get in plank position'}
                     </p>
                   </div>
                 </CardContent>
@@ -175,7 +176,7 @@ export default function Setup() {
                   <div>
                     <p className="font-medium text-white text-sm">Body Visible</p>
                     <p className="text-xs text-gray-400">
-                      {setupChecks.bodyVisible ? 'Full body detected' : 'Show full body'}
+                      {setupChecks.bodyVisible ? 'Full body detected' : 'Hold plank position'}
                     </p>
                   </div>
                 </CardContent>

@@ -52,11 +52,11 @@ export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unkn
     return 'unknown';
   }
 
-  // Check visibility - more lenient for mobile
+  // Check visibility - require proper landmarks to detect plank type
   const avgVisibility = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist]
     .reduce((sum, landmark) => sum + (landmark.visibility || 0), 0) / 6;
 
-  if (avgVisibility < 0.15) { // More lenient threshold for mobile detection
+  if (avgVisibility < 0.25) { // Require decent visibility to determine plank type
     return 'unknown';
   }
 
