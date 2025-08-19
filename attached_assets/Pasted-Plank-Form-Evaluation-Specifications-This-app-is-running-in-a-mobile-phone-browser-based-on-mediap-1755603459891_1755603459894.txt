@@ -1,0 +1,81 @@
+Plank Form Evaluation Specifications.
+This app is running in a mobile phone browser based on mediapipe pose model and must become a virtual coach for plank form. So it talks when in coaching mode and also in setup mode. 
+The sequence is startup screen (1) setup screen (2) COACHING SCREEN (3) Results screen
+(1)	Portrait
+(2)	Landscape
+(3)	Landscape
+(4)	Portrait
+Setup mode (displayed in landscape mode)
+Check if distance is good enough for the model to function properly (2 to 3 meters), detect the plank type (high or elbow) check if the full body is visible if these three conditions are respected, move to coaching mode. 
+Screen workflow: 1-2-3-4. 
+1: click on start session sends on screen 2 (setup mode)
+2: the 3 setup  conditions (good distance are respected sends on screen 3 (coaching screen/ coaching) a start coaching button also exists to force passage to coaching screen
+3: user clicks stop or says stop. User is sent to result screen (4) for score/feedback
+. Body Alignment Analysis
+Target: Perfect straight line from shoulders to ankles
+•	Measurement: Shoulder-Hip-Ankle angle using 2D coordinates
+•	Target angle: 180° (perfectly straight)
+•	Tolerance: ±15° (165° to 195°)
+•	Scoring:
+o	100 points: Within tolerance (165°-195°)
+o	Progressive penalty: 3 points per degree outside tolerance
+o	0 points: When landmarks not visible (visibility < 0.3)
+Feedback Messages:
+•	"Raise your hips" (angle < 170°)
+•	"Lower your hips" (angle > 190°)
+•	"Can't see your body clearly. Try better lighting." (low visibility)
+. Knee Position Analysis
+Target: Straight legs with no sagging
+•	Measurement: Hip-Knee-Ankle angle
+•	Target angle: ≥170° (nearly straight legs)
+•	Scoring:
+o	100 points: Angle ≥170°
+o	Progressive penalty: 2 points per degree below 170°
+o	0 points: When leg landmarks not visible
+Feedback Messages:
+•	"Straighten your legs" (angle < 170°)
+•	"Can't see your legs clearly. Adjust position." (low visibility)
+. Shoulder Stack Analysis
+Target: Proper joint alignment based on plank type
+•	High Plank: Shoulders directly over wrists
+•	Low Plank: Shoulders directly over elbows
+•	Measurement: Horizontal offset between shoulder and target joint (wrist for high plank [meaning extended arms] and elbow for elbow plank. Target is that shoulder point and (elbow or wrist point) form a 90º with the floor.
+•	Tolerance: ±10° (70° to 110°)
+•	Scoring System:
+o	100 points: Offset < 0.2 (excellent alignment)
+o	80 points: Offset 0.2-0.3 (good alignment)
+o	60 points: Offset > 0.3 (poor alignment)
+o	50 points: Partial visibility (fallback score)
+Feedback Messages:
+•	"Keep hands under shoulders" (high plank misalignment)
+•	"Keep elbows under shoulders" (low plank misalignment)
+. Technical Implementation Details
+Pose Detection:
+•	Library: MediaPipe Pose with 33 landmark points
+•	Confidence threshold: 0.3 minimum visibility
+•	Side selection: Automatically chooses better-visible side
+•	Coordinate system: 2D screen coordinates for reliability
+Adaptive Scoring:
+•	Visibility handling: Graceful degradation when landmarks partially visible
+•	Lenient thresholds: Accommodates natural human variation
+•	Real-time updates: 30fps analysis during workout
+Key Landmarks Used: 
+•	Shoulders: Points 11, 12
+•	Elbows: Points 13, 14
+•	Wrists: Points 15, 16
+•	Hips: Points 23, 24
+•	Knees: Points 25, 26
+•	Ankles: Points 27, 28
+. Form Recommendations Engine
+•	Dynamic feedback: Changes based on detected issues
+•	Priority system: Most critical issues shown first
+•	Voice announcements: Key feedback spoken aloud
+•	Visual indicators: Color-coded status for each metric
+
+. Overall Scoring System
+•	Total Score: Average of three key metrics (0-100 scale)
+•	Real-time feedback: Continuous scoring during workout
+•	Threshold-based status: Green (90+), Yellow (70-89), Red (<70)
+
+This system provides comprehensive real-time analysis that guides users toward proper plank form while being forgiving enough to work with varying lighting conditions and camera angles.
+
