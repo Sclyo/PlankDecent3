@@ -28,14 +28,24 @@ export default function Coaching() {
   const [, setLocation] = useLocation();
   const sessionId = params?.sessionId;
   
-  const [isRunning, setIsRunning] = useState(true);
+  const [isRunning, setIsRunning] = useState(false); // Start paused until pose detected
   const [sessionTime, setSessionTime] = useState(0);
   const [lastFeedbackTime, setLastFeedbackTime] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const sessionStartTime = useRef<number>(Date.now());
+  const sessionStartTime = useRef<number>(0);
 
   const { currentAnalysis, currentLandmarks, processResults, startAnalysis, stopAnalysis } = usePoseAnalysis({
     onAnalysisUpdate: (analysis) => {
+      // Auto-start timer when good pose detected
+      if (!hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 50) {
+        console.log('Good pose detected - starting session!');
+        setHasStarted(true);
+        setIsRunning(true);
+        sessionStartTime.current = Date.now();
+        speak('Perfect! Session started. Hold your plank position.', 'high');
+      }
+      
       // Send real-time data via WebSocket
       if (isConnected && sessionId) {
         sendMessage({
@@ -85,14 +95,11 @@ export default function Coaching() {
     };
   }, [isRunning]);
 
-  // Start analysis when component mounts
+  // Always run analysis to detect pose
   useEffect(() => {
-    if (isRunning) {
-      startAnalysis();
-    } else {
-      stopAnalysis();
-    }
-  }, [isRunning, startAnalysis, stopAnalysis]);
+    startAnalysis();
+    return () => stopAnalysis();
+  }, [startAnalysis, stopAnalysis]);
 
   // Voice feedback for critical issues
   useEffect(() => {
@@ -188,11 +195,13 @@ export default function Coaching() {
           onResults={processResults}
           className="w-full h-full"
         />
-        <PoseOverlay 
-          landmarks={currentLandmarks}
-          videoElement={null}
-          className="absolute inset-0 pointer-events-none"
-        />
+        {currentLandmarks.length > 0 && (
+          <PoseOverlay 
+            landmarks={currentLandmarks}
+            videoElement={null}
+            className=""
+          />
+        )}
       </div>
 
       {/* Top Status Bar */}
@@ -291,8 +300,18 @@ export default function Coaching() {
 
       {/* Bottom - Feedback & Controls */}
       <div className="absolute bottom-4 left-4 right-4 z-20">
-        {/* Live Feedback */}
-        {currentAnalysis?.feedback && currentAnalysis.feedback.length > 0 && (
+        {/* Live Feedback or Getting Ready Message */}
+        {!hasStarted ? (
+          <Card className="bg-blue-500/90 backdrop-blur-sm p-4 mb-4 text-center">
+            <div className="flex items-center justify-center space-x-2">
+              <span className="font-medium text-white">
+                {currentLandmarks.length > 0 
+                  ? `${currentAnalysis?.plankType === 'unknown' ? 'Get in plank position' : `${currentAnalysis?.plankType} plank detected - hold position!`}`
+                  : 'Position yourself in camera view'}
+              </span>
+            </div>
+          </Card>
+        ) : currentAnalysis?.feedback && currentAnalysis.feedback.length > 0 && (
           <Card className="bg-warning/90 backdrop-blur-sm p-4 mb-4 text-center">
             <div className="flex items-center justify-center space-x-2">
               <span className="font-medium text-black">

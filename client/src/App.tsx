@@ -13,7 +13,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Startup} />
-      <Route path="/setup" component={Setup} />
       <Route path="/coaching/:sessionId" component={Coaching} />
       <Route path="/results/:sessionId" component={Results} />
       <Route component={NotFound} />

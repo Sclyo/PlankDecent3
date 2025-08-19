@@ -14,25 +14,24 @@ export function PoseOverlay({ landmarks, videoElement, className = '' }: PoseOve
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     
-    console.log('PoseOverlay render - landmarks:', landmarks?.length, 'video:', !!videoElement);
-    
-    if (!canvas || !ctx) {
-      console.log('No canvas or context');
-      return;
-    }
+    if (!canvas || !ctx) return;
     
     if (!landmarks || landmarks.length === 0) {
-      console.log('No landmarks to draw');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       return;
     }
 
-    // Set canvas size to match the container
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    // Get the parent container (video container)
+    const container = canvas.parentElement;
+    if (!container) return;
     
-    console.log('Canvas size:', canvas.width, 'x', canvas.height);
+    const containerRect = container.getBoundingClientRect();
+    
+    // Set canvas to match container exactly
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.width = containerRect.width;
+    canvas.height = containerRect.height;
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -40,7 +39,9 @@ export function PoseOverlay({ landmarks, videoElement, className = '' }: PoseOve
     // Set drawing styles for MediaPipe green
     ctx.fillStyle = '#00FF00'; // Bright green for MediaPipe landmarks
     ctx.strokeStyle = '#00FF00';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
+    
+    console.log('Drawing landmarks on canvas:', canvas.width, 'x', canvas.height, 'landmarks:', landmarks.length);
 
     // Draw connections
     const connections = [
@@ -95,7 +96,44 @@ export function PoseOverlay({ landmarks, videoElement, className = '' }: PoseOve
       POSE_LANDMARKS.RIGHT_ANKLE,
     ];
 
-    // Draw ALL landmarks as green dots (MediaPipe style)
+    // Draw connections first (skeleton)
+    const connections = [
+      // Head
+      [0, 1], [1, 2], [2, 3], [3, 7],
+      [0, 4], [4, 5], [5, 6], [6, 8],
+      // Body
+      [9, 10], [11, 12], [11, 13], [13, 15],
+      [15, 17], [15, 19], [15, 21], [17, 19],
+      [12, 14], [14, 16], [16, 18], [16, 20],
+      [16, 22], [18, 20], [11, 23], [12, 24],
+      [23, 24], [23, 25], [24, 26], [25, 27],
+      [26, 28], [27, 29], [28, 30], [29, 31], [30, 32],
+      [27, 31], [28, 32]
+    ];
+    
+    // Draw connections
+    ctx.lineWidth = 2;
+    connections.forEach(([startIdx, endIdx]) => {
+      const start = landmarks[startIdx];
+      const end = landmarks[endIdx];
+      
+      if (start && end && 
+          (start.visibility || 0) > 0.3 && 
+          (end.visibility || 0) > 0.3) {
+        
+        const startX = start.x * canvas.width;
+        const startY = start.y * canvas.height;
+        const endX = end.x * canvas.width;
+        const endY = end.y * canvas.height;
+        
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+      }
+    });
+    
+    // Draw landmark points
     landmarks.forEach((landmark, index) => {
       if (landmark && (landmark.visibility || 0) > 0.3) {
         const x = landmark.x * canvas.width;
@@ -103,22 +141,21 @@ export function PoseOverlay({ landmarks, videoElement, className = '' }: PoseOve
         
         // Draw landmark point with MediaPipe green
         ctx.beginPath();
-        ctx.arc(x, y, 6, 0, 2 * Math.PI); // Larger dots
+        ctx.arc(x, y, 5, 0, 2 * Math.PI);
         ctx.fill();
         
-        // Add glow effect
-        ctx.shadowColor = '#00FF00';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        
-        console.log(`Drawing landmark ${index} at (${x.toFixed(1)}, ${y.toFixed(1)})`);
+        // Add glow effect for key joints
+        const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]; // Important joints
+        if (keyJoints.includes(index)) {
+          ctx.shadowColor = '#00FF00';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
       }
     });
-    
-    console.log('Finished drawing', landmarks.length, 'landmarks');
 
   }, [landmarks, videoElement]);
 
@@ -126,7 +163,10 @@ export function PoseOverlay({ landmarks, videoElement, className = '' }: PoseOve
     <canvas
       ref={canvasRef}
       className={`absolute inset-0 pointer-events-none ${className}`}
-      style={{ transform: 'scaleX(-1)' }} // Mirror to match video
+      style={{ 
+        transform: 'scaleX(-1)', // Mirror to match video
+        zIndex: 10
+      }}
     />
   );
 }
