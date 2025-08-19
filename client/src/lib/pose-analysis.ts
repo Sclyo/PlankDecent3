@@ -62,9 +62,14 @@ export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unkn
     rightHip: !!rightHip
   });
 
-  // MediaPipe provides visibility scores - use them for robust detection
-  const keyLandmarks = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist, leftHip, rightHip];
-  if (keyLandmarks.some(landmark => !landmark || (landmark.visibility || 0) < CONFIDENCE_THRESHOLD)) {
+  // Check if we have minimum required landmarks (more lenient)
+  const requiredLandmarks = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist];
+  const availableLandmarks = requiredLandmarks.filter(landmark => 
+    landmark && (landmark.visibility || 0) >= 0.2 // Lower threshold
+  );
+  
+  if (availableLandmarks.length < 4) {
+    console.log('Not enough visible landmarks for detection');
     return 'unknown';
   }
 
@@ -112,30 +117,53 @@ export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unkn
     Math.pow(elbowCenter.y - wristCenter.y, 2)
   );
 
-  // Determine plank type based on arm extension ratio
-  const armExtensionRatio = shoulderToWrist / shoulderToElbow;
-  const forearmLength = elbowToWrist;
+  // Choose the best visible side for detection
+  const leftVisibility = (leftShoulder?.visibility || 0) + (leftElbow?.visibility || 0) + (leftWrist?.visibility || 0);
+  const rightVisibility = (rightShoulder?.visibility || 0) + (rightElbow?.visibility || 0) + (rightWrist?.visibility || 0);
   
-  console.log('Arm detection:', {
-    armExtensionRatio,
-    forearmLength,
+  const useBetterSide = leftVisibility > rightVisibility;
+  const shoulder = useBetterSide ? leftShoulder : rightShoulder;
+  const elbow = useBetterSide ? leftElbow : rightElbow;
+  const wrist = useBetterSide ? leftWrist : rightWrist;
+  
+  if (!shoulder || !elbow || !wrist) {
+    return 'unknown';
+  }
+  
+  // Calculate distances
+  const shoulderToElbow = Math.sqrt(
+    Math.pow(shoulder.x - elbow.x, 2) + Math.pow(shoulder.y - elbow.y, 2)
+  );
+  const elbowToWrist = Math.sqrt(
+    Math.pow(elbow.x - wrist.x, 2) + Math.pow(elbow.y - wrist.y, 2)
+  );
+  const shoulderToWrist = Math.sqrt(
+    Math.pow(shoulder.x - wrist.x, 2) + Math.pow(shoulder.y - wrist.y, 2)
+  );
+  
+  // Simplified detection based on elbow angle
+  const elbowAngle = calculateAngle(shoulder, elbow, wrist);
+  
+  console.log('Plank detection angles:', {
+    elbowAngle,
     shoulderToElbow,
+    elbowToWrist,
     shoulderToWrist,
-    elbowToWrist
+    side: useBetterSide ? 'left' : 'right'
   });
   
-  // High plank: arms extended, wrists far from elbows (more forgiving thresholds)
-  if (armExtensionRatio > 1.4 && forearmLength > 0.1) {
-    console.log('Detected HIGH plank');
+  // High plank: arms are extended (elbow angle > 140°)
+  if (elbowAngle > 140) {
+    console.log('Detected HIGH plank - arms extended');
     return 'high';
   }
-  // Elbow plank: forearms on ground, wrists close to elbows
-  else if (armExtensionRatio < 1.5 && forearmLength < 0.25) {
-    console.log('Detected ELBOW plank');
+  // Elbow plank: arms are bent (elbow angle < 120°)
+  else if (elbowAngle < 120) {
+    console.log('Detected ELBOW plank - arms bent');
     return 'elbow';
   }
 
-  console.log('Could not determine plank type');
+  console.log('Could not determine plank type - ambiguous angle');
   return 'unknown';
 }
 
