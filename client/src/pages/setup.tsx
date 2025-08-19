@@ -45,13 +45,16 @@ export default function Setup() {
     if (currentAnalysis) {
       const { plankType } = currentAnalysis;
       
-      // Check distance (simplified - based on landmark visibility and size)
-      const distance = currentAnalysis.bodyAlignmentScore > 0 && 
-                      currentAnalysis.kneePositionScore > 0 && 
-                      currentAnalysis.shoulderStackScore > 0;
+      // Improved distance and visibility checks
+      const hasValidLandmarks = currentAnalysis.bodyAlignmentScore > 0 || 
+                               currentAnalysis.kneePositionScore > 0 || 
+                               currentAnalysis.shoulderStackScore > 0;
       
-      // Check if full body is visible
-      const bodyVisible = distance && plankType !== 'unknown';
+      // More lenient distance check - at least some pose data
+      const distance = hasValidLandmarks;
+      
+      // Body visible if we can detect plank type and have some landmark data
+      const bodyVisible = plankType !== 'unknown' && hasValidLandmarks;
       
       const newChecks = {
         distance,

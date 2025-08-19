@@ -32,12 +32,12 @@ export function useMediaPipe(): MediaPipeHook {
         });
 
         poseRef.current.setOptions({
-          modelComplexity: 1,
+          modelComplexity: 0, // Lighter model for mobile performance
           smoothLandmarks: true,
           enableSegmentation: false,
           smoothSegmentation: false,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5
+          minDetectionConfidence: 0.3, // Lower for better mobile detection
+          minTrackingConfidence: 0.3
         });
 
         poseRef.current.onResults((results: any) => {
@@ -70,8 +70,8 @@ export function useMediaPipe(): MediaPipeHook {
             await poseRef.current.send({ image: videoElement });
           }
         },
-        width: 1280,
-        height: 720
+        width: 640, // Lower resolution for better mobile performance
+        height: 480
       });
 
       await cameraRef.current.start();

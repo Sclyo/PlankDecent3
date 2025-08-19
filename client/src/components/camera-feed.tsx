@@ -31,11 +31,14 @@ export function CameraFeed({ onResults, className = '' }: CameraFeedProps) {
     };
 
     startCamera();
+  }, [isLoaded, initializeCamera, isInitialized]);
 
+  // Separate cleanup effect to prevent camera blinking
+  useEffect(() => {
     return () => {
       stopCamera();
     };
-  }, [isLoaded, initializeCamera, stopCamera, isInitialized]);
+  }, []);
 
   if (error) {
     return (

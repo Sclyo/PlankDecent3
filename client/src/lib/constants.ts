@@ -36,7 +36,7 @@ export const SCORE_THRESHOLDS = {
   GOOD: 70,
 };
 
-export const CONFIDENCE_THRESHOLD = 0.3;
+export const CONFIDENCE_THRESHOLD = 0.2; // Lowered for better mobile detection
 
 export const FEEDBACK_MESSAGES = {
   BODY_ALIGNMENT: {
