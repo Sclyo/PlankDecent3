@@ -79,20 +79,20 @@ export default function Coaching() {
         landmarks: currentLandmarks.length
       });
       
-      // Simplified detection: Just need basic pose landmarks and plank type
-      const hasBasicPose = currentLandmarks.length >= 20; // MediaPipe gives 33 landmarks
-      const hasValidPlankType = analysis.plankType !== 'unknown';
-      const hasMinimumScore = analysis.overallScore > 15; // Very low threshold
+      // Detection flow: When three indicators have reasonable scores (40+), detect full body AND plank type immediately
+      const hasGoodScores = analysis.bodyAlignmentScore >= 40 && 
+                           analysis.kneePositionScore >= 40 && 
+                           analysis.shoulderStackScore >= 40;
       
-      // Step 1: Detect full body and plank type as soon as we have valid data
-      if (!fullBodyDetected && hasBasicPose && hasValidPlankType && hasMinimumScore) {
-        console.log(`🎯 PLANK DETECTED! Type: ${analysis.plankType}, Score: ${analysis.overallScore}`);
+      // Step 1: Detect full body AND plank type simultaneously when indicators have minimum scores
+      // Also allow detection if plank type is detected even with lower scores
+      if (!fullBodyDetected && ((hasGoodScores && currentLandmarks.length > 0) || 
+          (analysis.plankType !== 'unknown' && analysis.overallScore > 20))) {
+        console.log('🎯 FULL BODY AND PLANK TYPE DETECTED!');
         setFullBodyDetected(true);
         setPlankTypeDetected(true);
         setDetectedPlankType(analysis.plankType);
-        
-        // Immediate voice feedback
-        speak(`${analysis.plankType === 'high' ? 'High plank' : 'Elbow plank'} detected`, 'high');
+        speak('Full body identified', 'high');
         
         // Announce plank type immediately after
         setTimeout(() => {
@@ -100,18 +100,18 @@ export default function Coaching() {
         }, 1500);
       }
       
-      // Step 2: Start timer immediately after detection
-      if (fullBodyDetected && plankTypeDetected && !hasStarted) {
+      // Step 2: Start timer
+      if (fullBodyDetected && plankTypeDetected && !hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 30) {
         console.log(`🎯 STARTING SESSION! Plank: ${analysis.plankType}, Score: ${analysis.overallScore}`);
         setHasStarted(true);
         setIsRunning(true);
         sessionStartTime.current = Date.now();
         setLastAnnouncementTime(Date.now());
         
-        // Start timer announcement right after plank type
+        // Announce timer start after plank type announcement
         setTimeout(() => {
           speak('Timer started', 'high');
-        }, 1500);
+        }, 3000);
       }
       
       // Send real-time data via WebSocket
