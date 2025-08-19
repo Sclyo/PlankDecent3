@@ -28,36 +28,16 @@ export default function Coaching() {
   const [, setLocation] = useLocation();
   const sessionId = params?.sessionId;
   
-  const [isRunning, setIsRunning] = useState(false); // Start paused until body is detected
-  const [isReady, setIsReady] = useState(false); // Track if coaching can start
+  const [isRunning, setIsRunning] = useState(true);
   const [sessionTime, setSessionTime] = useState(0);
   const [lastFeedbackTime, setLastFeedbackTime] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const sessionStartTime = useRef<number>(0); // Will be set when coaching actually starts
+  const sessionStartTime = useRef<number>(Date.now());
 
   const { currentAnalysis, processResults, startAnalysis, stopAnalysis } = usePoseAnalysis({
     onAnalysisUpdate: (analysis) => {
-      // Check if we're ready to start coaching
-      if (!isReady && !isRunning) {
-        const hasGoodVisibility = analysis.bodyAlignmentScore > 0 && 
-                                 analysis.kneePositionScore > 0 && 
-                                 analysis.shoulderStackScore > 0;
-        const hasPlankType = analysis.plankType === 'high' || analysis.plankType === 'elbow';
-        
-        if (hasGoodVisibility && hasPlankType) {
-          setIsReady(true);
-          speak('Perfect! Starting coaching now. Hold your plank position.', 'high');
-          
-          // Start coaching after a brief delay
-          setTimeout(() => {
-            setIsRunning(true);
-            sessionStartTime.current = Date.now();
-          }, 2000);
-        }
-      }
-      
-      // Send real-time data via WebSocket only during active coaching
-      if (isConnected && sessionId && isRunning) {
+      // Send real-time data via WebSocket
+      if (isConnected && sessionId) {
         sendMessage({
           type: 'pose_analysis',
           sessionId,
@@ -105,10 +85,14 @@ export default function Coaching() {
     };
   }, [isRunning]);
 
-  // Start analysis when component mounts (always running for detection)
+  // Start analysis when component mounts
   useEffect(() => {
-    startAnalysis(); // Always analyze for body detection
-  }, [startAnalysis]);
+    if (isRunning) {
+      startAnalysis();
+    } else {
+      stopAnalysis();
+    }
+  }, [isRunning, startAnalysis, stopAnalysis]);
 
   // Voice feedback for critical issues
   useEffect(() => {
@@ -136,8 +120,6 @@ export default function Coaching() {
   };
 
   const handlePauseResume = () => {
-    if (!isReady) return; // Can't pause/resume before coaching starts
-    
     setIsRunning(!isRunning);
     if (isRunning) {
       speak('Session paused', 'high');
@@ -218,15 +200,11 @@ export default function Coaching() {
       <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-20">
         <div className="flex items-center space-x-3">
           {/* Session Timer */}
-          <Card className={`backdrop-blur-sm px-4 py-2 ${
-            isReady ? 'bg-surface/80' : 'bg-warning/20 border-warning/40'
-          }`}>
+          <Card className="bg-surface/80 backdrop-blur-sm px-4 py-2">
             <div className="flex items-center space-x-2">
-              <Clock className={`w-4 h-4 ${isReady ? 'text-success' : 'text-warning'}`} />
-              <span className={`font-medium text-lg ${
-                isReady ? 'text-white' : 'text-warning'
-              }`}>
-                {isReady ? formatTime(sessionTime) : 'Preparing...'}
+              <Clock className="w-4 h-4 text-success" />
+              <span className="font-medium text-lg text-white">
+                {formatTime(sessionTime)}
               </span>
             </div>
           </Card>
@@ -314,22 +292,8 @@ export default function Coaching() {
 
       {/* Bottom - Feedback & Controls */}
       <div className="absolute bottom-4 left-4 right-4 z-20">
-        {/* Preparation Message */}
-        {!isReady && currentAnalysis && (
-          <Card className="bg-blue-600/90 backdrop-blur-sm p-4 mb-4 text-center">
-            <div className="flex items-center justify-center space-x-2">
-              <span className="font-medium text-white">
-                {currentAnalysis.plankType === 'unknown' 
-                  ? 'Get into plank position - we\'ll detect your form automatically'
-                  : `${currentAnalysis.plankType === 'high' ? 'High plank' : 'Elbow plank'} detected! Hold steady for full body scan...`
-                }
-              </span>
-            </div>
-          </Card>
-        )}
-        
-        {/* Live Feedback - Only during active coaching */}
-        {isReady && isRunning && currentAnalysis?.feedback && currentAnalysis.feedback.length > 0 && (
+        {/* Live Feedback */}
+        {currentAnalysis?.feedback && currentAnalysis.feedback.length > 0 && (
           <Card className="bg-warning/90 backdrop-blur-sm p-4 mb-4 text-center">
             <div className="flex items-center justify-center space-x-2">
               <span className="font-medium text-black">
@@ -341,32 +305,30 @@ export default function Coaching() {
 
         {/* Control Buttons */}
         <div className="flex justify-center space-x-6">
-          {isReady && (
-            <Button
-              onClick={handlePauseResume}
-              variant="ghost"
-              className="bg-surface/80 backdrop-blur-sm hover:bg-surface-light/80 px-8 py-4"
-            >
-              {isRunning ? (
-                <>
-                  <Pause className="w-5 h-5 mr-2" />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <Play className="w-5 h-5 mr-2" />
-                  Resume
-                </>
-              )}
-            </Button>
-          )}
+          <Button
+            onClick={handlePauseResume}
+            variant="ghost"
+            className="bg-surface/80 backdrop-blur-sm hover:bg-surface-light/80 px-8 py-4"
+          >
+            {isRunning ? (
+              <>
+                <Pause className="w-5 h-5 mr-2" />
+                Pause
+              </>
+            ) : (
+              <>
+                <Play className="w-5 h-5 mr-2" />
+                Resume
+              </>
+            )}
+          </Button>
 
           <Button
             onClick={handleStop}
             className="bg-error/80 backdrop-blur-sm hover:bg-error px-8 py-4"
           >
             <Square className="w-5 h-5 mr-2" />
-            {isReady ? 'Stop' : 'Cancel'}
+            Stop
           </Button>
         </div>
       </div>
