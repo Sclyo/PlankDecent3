@@ -46,7 +46,8 @@ export class MemStorage implements IStorage {
   async createSession(insertSession: InsertSession): Promise<Session> {
     const id = randomUUID();
     const session: Session = {
-      ...insertSession,
+      userId: insertSession.userId || null,
+      plankType: insertSession.plankType,
       id,
       startTime: new Date(),
       endTime: null,
@@ -83,7 +84,12 @@ export class MemStorage implements IStorage {
   async createPoseAnalysis(insertAnalysis: InsertPoseAnalysis): Promise<PoseAnalysis> {
     const id = randomUUID();
     const analysis: PoseAnalysis = {
-      ...insertAnalysis,
+      sessionId: insertAnalysis.sessionId,
+      bodyAlignmentAngle: insertAnalysis.bodyAlignmentAngle || null,
+      kneeAngle: insertAnalysis.kneeAngle || null,
+      shoulderStackAngle: insertAnalysis.shoulderStackAngle || null,
+      overallScore: insertAnalysis.overallScore || null,
+      feedback: insertAnalysis.feedback || null,
       id,
       timestamp: new Date(),
     };

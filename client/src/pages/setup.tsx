@@ -62,7 +62,7 @@ export default function Setup() {
       setSetupChecks(newChecks);
       
       // All conditions met
-      const ready = distance && bodyVisible && plankType !== 'unknown';
+      const ready = distance && bodyVisible && (plankType === 'high' || plankType === 'elbow');
       if (ready !== isReady) {
         setIsReady(ready);
         if (ready && voiceEnabled) {

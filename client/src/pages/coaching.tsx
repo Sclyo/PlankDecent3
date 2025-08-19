@@ -215,7 +215,7 @@ export default function Coaching() {
               <div className="text-white">
                 <span className="text-sm text-gray-300">Detected: </span>
                 <span className="font-semibold text-success">
-                  {session.plankType === 'high' ? 'High Plank' : 'Elbow Plank'}
+                  {session?.plankType === 'high' ? 'High Plank' : 'Elbow Plank'}
                 </span>
               </div>
             </Card>

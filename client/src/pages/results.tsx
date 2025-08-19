@@ -93,8 +93,8 @@ export default function Results() {
     );
   }
 
-  const scoreGrade = getScoreGrade(session.averageScore || 0);
-  const improvementTips = getImprovementTips(session);
+  const scoreGrade = getScoreGrade(session?.averageScore || 0);
+  const improvementTips = getImprovementTips(session || {});
 
   return (
     <div className="min-h-screen bg-dark-bg p-4">
@@ -131,13 +131,13 @@ export default function Results() {
                     strokeWidth="8" 
                     fill="none"
                     strokeDasharray="251.2"
-                    strokeDashoffset={251.2 - ((session.averageScore || 0) / 100) * 251.2}
+                    strokeDashoffset={251.2 - ((session?.averageScore || 0) / 100) * 251.2}
                     className="transition-all duration-1000"
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className={`text-4xl font-bold ${scoreGrade.color}`}>
-                    {session.averageScore || 0}
+                    {session?.averageScore || 0}
                   </span>
                   <span className="text-sm text-gray-400">Overall</span>
                 </div>
@@ -153,7 +153,7 @@ export default function Results() {
                   variant="secondary" 
                   className="text-sm px-3 py-1"
                 >
-                  {session.plankType === 'high' ? 'High Plank' : 'Elbow Plank'}
+                  {session?.plankType === 'high' ? 'High Plank' : 'Elbow Plank'}
                 </Badge>
               </div>
 
@@ -163,14 +163,14 @@ export default function Results() {
                   <Clock className="w-5 h-5 text-blue-400" />
                   <div>
                     <p className="text-sm text-gray-400">Duration</p>
-                    <p className="font-semibold text-white">{formatTime(session.duration)}</p>
+                    <p className="font-semibold text-white">{formatTime(session?.duration)}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
                   <BarChart3 className="w-5 h-5 text-green-400" />
                   <div>
                     <p className="text-sm text-gray-400">Data Points</p>
-                    <p className="font-semibold text-white">{analysisData?.length || 0}</p>
+                    <p className="font-semibold text-white">{Array.isArray(analysisData) ? analysisData.length : 0}</p>
                   </div>
                 </div>
               </div>
@@ -189,10 +189,10 @@ export default function Results() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white mb-2">
-                {session.bodyAlignmentScore || 0}
+                {session?.bodyAlignmentScore || 0}
               </div>
               <Progress 
-                value={session.bodyAlignmentScore || 0} 
+                value={session?.bodyAlignmentScore || 0} 
                 className="mb-2"
               />
               <p className="text-sm text-gray-400">
@@ -210,10 +210,10 @@ export default function Results() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white mb-2">
-                {session.kneePositionScore || 0}
+                {session?.kneePositionScore || 0}
               </div>
               <Progress 
-                value={session.kneePositionScore || 0} 
+                value={session?.kneePositionScore || 0} 
                 className="mb-2"
               />
               <p className="text-sm text-gray-400">
@@ -231,10 +231,10 @@ export default function Results() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white mb-2">
-                {session.shoulderStackScore || 0}
+                {session?.shoulderStackScore || 0}
               </div>
               <Progress 
-                value={session.shoulderStackScore || 0} 
+                value={session?.shoulderStackScore || 0} 
                 className="mb-2"
               />
               <p className="text-sm text-gray-400">
