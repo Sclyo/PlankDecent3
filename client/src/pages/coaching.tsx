@@ -34,7 +34,7 @@ export default function Coaching() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionStartTime = useRef<number>(Date.now());
 
-  const { currentAnalysis, processResults, startAnalysis, stopAnalysis } = usePoseAnalysis({
+  const { currentAnalysis, currentLandmarks, processResults, startAnalysis, stopAnalysis } = usePoseAnalysis({
     onAnalysisUpdate: (analysis) => {
       // Send real-time data via WebSocket
       if (isConnected && sessionId) {
@@ -188,9 +188,9 @@ export default function Coaching() {
           onResults={processResults}
           className="w-full h-full"
         />
-        {currentAnalysis && (
+        {currentLandmarks.length > 0 && (
           <PoseOverlay 
-            landmarks={[]} // Will be populated by MediaPipe results
+            landmarks={currentLandmarks}
             videoElement={videoRef.current || undefined}
           />
         )}

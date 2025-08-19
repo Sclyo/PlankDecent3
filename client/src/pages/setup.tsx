@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CameraFeed } from '@/components/camera-feed';
+import { PoseOverlay } from '@/components/pose-overlay';
 import { usePoseAnalysis } from '@/hooks/use-pose-analysis';
 import { useVoiceFeedback } from '@/hooks/use-voice-feedback';
 import { apiRequest } from '@/lib/queryClient';
@@ -27,7 +28,7 @@ export default function Setup() {
   const [isReady, setIsReady] = useState(false);
   const isMobile = useIsMobile();
   
-  const { currentAnalysis, processResults, startAnalysis } = usePoseAnalysis();
+  const { currentAnalysis, currentLandmarks, processResults, startAnalysis } = usePoseAnalysis();
   const { speak, isEnabled: voiceEnabled } = useVoiceFeedback();
 
   const createSession = useMutation({
@@ -138,6 +139,13 @@ export default function Setup() {
                 onResults={processResults}
                 className="w-full h-full"
               />
+              {currentLandmarks.length > 0 && (
+                <PoseOverlay 
+                  landmarks={currentLandmarks}
+                  videoElement={document.querySelector('video') as HTMLVideoElement}
+                  className="absolute inset-0"
+                />
+              )}
             </div>
 
             {/* Setup Checks */}

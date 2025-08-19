@@ -8,12 +8,18 @@ interface UsePoseAnalysisOptions {
 
 export function usePoseAnalysis(options: UsePoseAnalysisOptions = {}) {
   const [currentAnalysis, setCurrentAnalysis] = useState<PoseAnalysisResult | null>(null);
+  const [currentLandmarks, setCurrentLandmarks] = useState<any[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const lastAnalysisRef = useRef<number>(0);
   const analysisInterval = options.analysisInterval || 100; // 10 FPS analysis
 
   const processResults = useCallback((results: any) => {
-    if (!results.poseLandmarks || !isAnalyzing) return;
+    console.log('MediaPipe Results:', results); // Debug log
+    
+    if (!results.poseLandmarks || !isAnalyzing) {
+      console.log('No pose landmarks or not analyzing');
+      return;
+    }
 
     const now = Date.now();
     if (now - lastAnalysisRef.current < analysisInterval) {
@@ -28,7 +34,14 @@ export function usePoseAnalysis(options: UsePoseAnalysisOptions = {}) {
         visibility: landmark.visibility,
       }));
 
+      console.log('Processed landmarks:', landmarks.length); // Debug log
+      
+      // Store the raw landmarks for overlay rendering
+      setCurrentLandmarks(landmarks);
+      
       const analysis = analyzePose(landmarks);
+      console.log('Analysis result:', analysis); // Debug log
+      
       setCurrentAnalysis(analysis);
       options.onAnalysisUpdate?.(analysis);
       lastAnalysisRef.current = now;
@@ -53,6 +66,7 @@ export function usePoseAnalysis(options: UsePoseAnalysisOptions = {}) {
 
   return {
     currentAnalysis,
+    currentLandmarks,
     isAnalyzing,
     processResults,
     startAnalysis,
