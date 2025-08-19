@@ -14,19 +14,33 @@ export function PoseOverlay({ landmarks, videoElement, className = '' }: PoseOve
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     
-    if (!canvas || !ctx || !landmarks || !videoElement) return;
+    console.log('PoseOverlay render - landmarks:', landmarks?.length, 'video:', !!videoElement);
+    
+    if (!canvas || !ctx) {
+      console.log('No canvas or context');
+      return;
+    }
+    
+    if (!landmarks || landmarks.length === 0) {
+      console.log('No landmarks to draw');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
 
-    // Set canvas size to match video
-    canvas.width = videoElement.videoWidth || 640;
-    canvas.height = videoElement.videoHeight || 480;
+    // Set canvas size to match the container
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    
+    console.log('Canvas size:', canvas.width, 'x', canvas.height);
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Set drawing styles
-    ctx.fillStyle = '#1DB584';
-    ctx.strokeStyle = '#1DB584';
-    ctx.lineWidth = 2;
+    // Set drawing styles for MediaPipe green
+    ctx.fillStyle = '#00FF00'; // Bright green for MediaPipe landmarks
+    ctx.strokeStyle = '#00FF00';
+    ctx.lineWidth = 3;
 
     // Draw connections
     const connections = [
@@ -81,26 +95,30 @@ export function PoseOverlay({ landmarks, videoElement, className = '' }: PoseOve
       POSE_LANDMARKS.RIGHT_ANKLE,
     ];
 
-    keyLandmarks.forEach((landmarkIdx) => {
-      const landmark = landmarks[landmarkIdx];
-      if (landmark && landmark.visibility > CONFIDENCE_THRESHOLD) {
+    // Draw ALL landmarks as green dots (MediaPipe style)
+    landmarks.forEach((landmark, index) => {
+      if (landmark && (landmark.visibility || 0) > 0.3) {
         const x = landmark.x * canvas.width;
         const y = landmark.y * canvas.height;
         
-        // Draw landmark point
+        // Draw landmark point with MediaPipe green
         ctx.beginPath();
-        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.arc(x, y, 6, 0, 2 * Math.PI); // Larger dots
         ctx.fill();
         
         // Add glow effect
-        ctx.shadowColor = '#1DB584';
-        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#00FF00';
+        ctx.shadowBlur = 8;
         ctx.beginPath();
-        ctx.arc(x, y, 2, 0, 2 * Math.PI);
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
         ctx.fill();
         ctx.shadowBlur = 0;
+        
+        console.log(`Drawing landmark ${index} at (${x.toFixed(1)}, ${y.toFixed(1)})`);
       }
     });
+    
+    console.log('Finished drawing', landmarks.length, 'landmarks');
 
   }, [landmarks, videoElement]);
 

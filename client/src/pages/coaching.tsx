@@ -188,12 +188,11 @@ export default function Coaching() {
           onResults={processResults}
           className="w-full h-full"
         />
-        {currentLandmarks.length > 0 && (
-          <PoseOverlay 
-            landmarks={currentLandmarks}
-            videoElement={videoRef.current || undefined}
-          />
-        )}
+        <PoseOverlay 
+          landmarks={currentLandmarks}
+          videoElement={null}
+          className="absolute inset-0 pointer-events-none"
+        />
       </div>
 
       {/* Top Status Bar */}

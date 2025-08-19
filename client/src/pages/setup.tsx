@@ -139,13 +139,11 @@ export default function Setup() {
                 onResults={processResults}
                 className="w-full h-full"
               />
-              {currentLandmarks.length > 0 && (
-                <PoseOverlay 
-                  landmarks={currentLandmarks}
-                  videoElement={document.querySelector('video') as HTMLVideoElement}
-                  className="absolute inset-0"
-                />
-              )}
+              <PoseOverlay 
+                landmarks={currentLandmarks}
+                videoElement={null}
+                className="absolute inset-0 pointer-events-none"
+              />
             </div>
 
             {/* Setup Checks */}
