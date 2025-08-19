@@ -79,34 +79,37 @@ export default function Coaching() {
         landmarks: currentLandmarks.length
       });
       
-      // Staged detection flow: Full body -> Plank type -> Timer start
+      // Detection flow: When three indicators are green, detect full body AND plank type immediately
       const hasGoodScores = analysis.bodyAlignmentScore >= 30 && 
                            analysis.kneePositionScore >= 30 && 
                            analysis.shoulderStackScore >= 30;
       
-      // Step 1: Detect full body
-      if (!fullBodyDetected && hasGoodScores && currentLandmarks.length > 0) {
-        console.log('🎯 FULL BODY DETECTED!');
+      // Step 1: Detect full body AND plank type simultaneously when indicators are green
+      if (!fullBodyDetected && hasGoodScores && currentLandmarks.length > 0 && analysis.plankType !== 'unknown') {
+        console.log('🎯 FULL BODY AND PLANK TYPE DETECTED!');
         setFullBodyDetected(true);
-        speak('Full body identified', 'high');
-      }
-      
-      // Step 2: Detect plank type
-      if (fullBodyDetected && !plankTypeDetected && analysis.plankType !== 'unknown') {
-        console.log(`🎯 PLANK TYPE DETECTED: ${analysis.plankType}`);
         setPlankTypeDetected(true);
         setDetectedPlankType(analysis.plankType);
-        speak(`Plank type: ${analysis.plankType}`, 'high');
+        speak('Full body identified', 'high');
+        
+        // Announce plank type immediately after
+        setTimeout(() => {
+          speak(`Plank type: ${analysis.plankType}`, 'high');
+        }, 1500);
       }
       
-      // Step 3: Start timer
+      // Step 2: Start timer
       if (fullBodyDetected && plankTypeDetected && !hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 30) {
         console.log(`🎯 STARTING SESSION! Plank: ${analysis.plankType}, Score: ${analysis.overallScore}`);
         setHasStarted(true);
         setIsRunning(true);
         sessionStartTime.current = Date.now();
         setLastAnnouncementTime(Date.now());
-        speak('Timer started', 'high');
+        
+        // Announce timer start after plank type announcement
+        setTimeout(() => {
+          speak('Timer started', 'high');
+        }, 3000);
       }
       
       // Send real-time data via WebSocket
