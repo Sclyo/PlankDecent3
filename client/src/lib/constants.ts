@@ -36,7 +36,7 @@ export const SCORE_THRESHOLDS = {
   GOOD: 70,
 };
 
-export const CONFIDENCE_THRESHOLD = 0.5; // MediaPipe standard threshold for reliable detection
+export const CONFIDENCE_THRESHOLD = 0.3; // Lower threshold for mobile camera quality
 
 export const FEEDBACK_MESSAGES = {
   BODY_ALIGNMENT: {

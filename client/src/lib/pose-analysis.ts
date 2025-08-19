@@ -50,6 +50,17 @@ export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unkn
   const rightWrist = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
   const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP];
   const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP];
+  
+  console.log('Plank detection debug - landmarks available:', {
+    leftShoulder: !!leftShoulder,
+    rightShoulder: !!rightShoulder,
+    leftElbow: !!leftElbow,
+    rightElbow: !!rightElbow,
+    leftWrist: !!leftWrist,
+    rightWrist: !!rightWrist,
+    leftHip: !!leftHip,
+    rightHip: !!rightHip
+  });
 
   // MediaPipe provides visibility scores - use them for robust detection
   const keyLandmarks = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist, leftHip, rightHip];
@@ -79,8 +90,11 @@ export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unkn
   const torsoAngle = Math.atan2(hipCenter.y - shoulderCenter.y, hipCenter.x - shoulderCenter.x) * (180 / Math.PI);
   const absAngle = Math.abs(torsoAngle);
   
-  // Body should be roughly horizontal (within 30 degrees of horizontal)
-  if (absAngle > 30 && absAngle < 150) {
+  console.log('Torso angle:', torsoAngle, 'Abs angle:', absAngle);
+  
+  // Body should be roughly horizontal (within 45 degrees of horizontal - more forgiving)
+  if (absAngle > 45 && absAngle < 135) {
+    console.log('Body not horizontal enough');
     return 'unknown';
   }
 
@@ -102,15 +116,26 @@ export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unkn
   const armExtensionRatio = shoulderToWrist / shoulderToElbow;
   const forearmLength = elbowToWrist;
   
-  // High plank: arms extended, wrists far from elbows
-  if (armExtensionRatio > 1.6 && forearmLength > 0.15) {
+  console.log('Arm detection:', {
+    armExtensionRatio,
+    forearmLength,
+    shoulderToElbow,
+    shoulderToWrist,
+    elbowToWrist
+  });
+  
+  // High plank: arms extended, wrists far from elbows (more forgiving thresholds)
+  if (armExtensionRatio > 1.4 && forearmLength > 0.1) {
+    console.log('Detected HIGH plank');
     return 'high';
   }
   // Elbow plank: forearms on ground, wrists close to elbows
-  else if (armExtensionRatio < 1.3 && forearmLength < 0.2) {
+  else if (armExtensionRatio < 1.5 && forearmLength < 0.25) {
+    console.log('Detected ELBOW plank');
     return 'elbow';
   }
 
+  console.log('Could not determine plank type');
   return 'unknown';
 }
 

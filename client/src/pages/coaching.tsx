@@ -79,13 +79,15 @@ export default function Coaching() {
         landmarks: currentLandmarks.length
       });
       
-      // Detection flow: When three indicators are green (70+), detect full body AND plank type immediately
-      const hasGoodScores = analysis.bodyAlignmentScore >= 70 && 
-                           analysis.kneePositionScore >= 70 && 
-                           analysis.shoulderStackScore >= 70;
+      // Detection flow: When three indicators have reasonable scores (40+), detect full body AND plank type immediately
+      const hasGoodScores = analysis.bodyAlignmentScore >= 40 && 
+                           analysis.kneePositionScore >= 40 && 
+                           analysis.shoulderStackScore >= 40;
       
-      // Step 1: Detect full body AND plank type simultaneously when indicators are green
-      if (!fullBodyDetected && hasGoodScores && currentLandmarks.length > 0 && analysis.plankType !== 'unknown') {
+      // Step 1: Detect full body AND plank type simultaneously when indicators have minimum scores
+      // Also allow detection if plank type is detected even with lower scores
+      if (!fullBodyDetected && ((hasGoodScores && currentLandmarks.length > 0) || 
+          (analysis.plankType !== 'unknown' && analysis.overallScore > 20))) {
         console.log('🎯 FULL BODY AND PLANK TYPE DETECTED!');
         setFullBodyDetected(true);
         setPlankTypeDetected(true);
@@ -99,7 +101,7 @@ export default function Coaching() {
       }
       
       // Step 2: Start timer
-      if (fullBodyDetected && plankTypeDetected && !hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 50) {
+      if (fullBodyDetected && plankTypeDetected && !hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 30) {
         console.log(`🎯 STARTING SESSION! Plank: ${analysis.plankType}, Score: ${analysis.overallScore}`);
         setHasStarted(true);
         setIsRunning(true);

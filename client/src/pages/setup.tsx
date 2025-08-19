@@ -46,10 +46,10 @@ export default function Setup() {
     if (currentAnalysis) {
       const { plankType } = currentAnalysis;
       
-      // PROPER distance check - all scores must be decent (not just > 0)
-      const hasGoodScores = currentAnalysis.bodyAlignmentScore >= 30 && 
-                           currentAnalysis.kneePositionScore >= 30 && 
-                           currentAnalysis.shoulderStackScore >= 30;
+      // PROPER distance check - all scores must be present (more forgiving thresholds)
+      const hasGoodScores = currentAnalysis.bodyAlignmentScore >= 20 && 
+                           currentAnalysis.kneePositionScore >= 20 && 
+                           currentAnalysis.shoulderStackScore >= 20;
       
       // Distance is good if we have meaningful pose analysis scores
       const distance = hasGoodScores;
