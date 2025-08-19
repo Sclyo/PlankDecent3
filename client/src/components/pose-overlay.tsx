@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { POSE_LANDMARKS, CONFIDENCE_THRESHOLD } from '@/lib/constants';
 
 interface PoseOverlayProps {
   landmarks?: any[];
@@ -25,95 +24,40 @@ export function PoseOverlay({ landmarks, videoElement, className = '' }: PoseOve
     const container = canvas.parentElement;
     if (!container) return;
     
+    // Ensure canvas matches container size exactly for proper alignment
     const containerRect = container.getBoundingClientRect();
-    
-    // Set canvas to match container exactly
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
     canvas.width = containerRect.width;
     canvas.height = containerRect.height;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Set drawing styles for MediaPipe green
-    ctx.fillStyle = '#00FF00'; // Bright green for MediaPipe landmarks
+    // Set MediaPipe green drawing styles
+    ctx.fillStyle = '#00FF00';
     ctx.strokeStyle = '#00FF00';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     
-    console.log('Drawing landmarks on canvas:', canvas.width, 'x', canvas.height, 'landmarks:', landmarks.length);
+    console.log('Drawing pose overlay - Canvas:', canvas.width, 'x', canvas.height, 'Landmarks:', landmarks.length);
 
-    // Draw connections
-    const connections = [
-      // Body outline
-      [POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.RIGHT_SHOULDER],
-      [POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.LEFT_HIP],
-      [POSE_LANDMARKS.RIGHT_SHOULDER, POSE_LANDMARKS.RIGHT_HIP],
-      [POSE_LANDMARKS.LEFT_HIP, POSE_LANDMARKS.RIGHT_HIP],
-      
+    // MediaPipe pose connections (standard skeleton)
+    const poseConnections = [
+      // Face
+      [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8],
+      // Body torso
+      [9, 10], [11, 12], [11, 23], [12, 24], [23, 24],
       // Arms
-      [POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.LEFT_ELBOW],
-      [POSE_LANDMARKS.LEFT_ELBOW, POSE_LANDMARKS.LEFT_WRIST],
-      [POSE_LANDMARKS.RIGHT_SHOULDER, POSE_LANDMARKS.RIGHT_ELBOW],
-      [POSE_LANDMARKS.RIGHT_ELBOW, POSE_LANDMARKS.RIGHT_WRIST],
-      
+      [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [17, 19],
+      [12, 14], [14, 16], [16, 18], [16, 20], [16, 22], [18, 20],
       // Legs
-      [POSE_LANDMARKS.LEFT_HIP, POSE_LANDMARKS.LEFT_KNEE],
-      [POSE_LANDMARKS.LEFT_KNEE, POSE_LANDMARKS.LEFT_ANKLE],
-      [POSE_LANDMARKS.RIGHT_HIP, POSE_LANDMARKS.RIGHT_KNEE],
-      [POSE_LANDMARKS.RIGHT_KNEE, POSE_LANDMARKS.RIGHT_ANKLE],
-    ];
-
-    // Draw connections
-    connections.forEach(([startIdx, endIdx]) => {
-      const start = landmarks[startIdx];
-      const end = landmarks[endIdx];
-      
-      if (start && end && 
-          start.visibility > CONFIDENCE_THRESHOLD && 
-          end.visibility > CONFIDENCE_THRESHOLD) {
-        
-        ctx.beginPath();
-        ctx.moveTo(start.x * canvas.width, start.y * canvas.height);
-        ctx.lineTo(end.x * canvas.width, end.y * canvas.height);
-        ctx.stroke();
-      }
-    });
-
-    // Draw key landmarks
-    const keyLandmarks = [
-      POSE_LANDMARKS.LEFT_SHOULDER,
-      POSE_LANDMARKS.RIGHT_SHOULDER,
-      POSE_LANDMARKS.LEFT_ELBOW,
-      POSE_LANDMARKS.RIGHT_ELBOW,
-      POSE_LANDMARKS.LEFT_WRIST,
-      POSE_LANDMARKS.RIGHT_WRIST,
-      POSE_LANDMARKS.LEFT_HIP,
-      POSE_LANDMARKS.RIGHT_HIP,
-      POSE_LANDMARKS.LEFT_KNEE,
-      POSE_LANDMARKS.RIGHT_KNEE,
-      POSE_LANDMARKS.LEFT_ANKLE,
-      POSE_LANDMARKS.RIGHT_ANKLE,
-    ];
-
-    // Draw connections first (skeleton)
-    const connections = [
-      // Head
-      [0, 1], [1, 2], [2, 3], [3, 7],
-      [0, 4], [4, 5], [5, 6], [6, 8],
-      // Body
-      [9, 10], [11, 12], [11, 13], [13, 15],
-      [15, 17], [15, 19], [15, 21], [17, 19],
-      [12, 14], [14, 16], [16, 18], [16, 20],
-      [16, 22], [18, 20], [11, 23], [12, 24],
-      [23, 24], [23, 25], [24, 26], [25, 27],
-      [26, 28], [27, 29], [28, 30], [29, 31], [30, 32],
-      [27, 31], [28, 32]
+      [23, 25], [25, 27], [27, 29], [27, 31], [29, 31],
+      [24, 26], [26, 28], [28, 30], [28, 32], [30, 32]
     ];
     
-    // Draw connections
+    // Draw skeleton connections
     ctx.lineWidth = 2;
-    connections.forEach(([startIdx, endIdx]) => {
+    poseConnections.forEach(([startIdx, endIdx]) => {
       const start = landmarks[startIdx];
       const end = landmarks[endIdx];
       
@@ -139,25 +83,29 @@ export function PoseOverlay({ landmarks, videoElement, className = '' }: PoseOve
         const x = landmark.x * canvas.width;
         const y = landmark.y * canvas.height;
         
-        // Draw landmark point with MediaPipe green
+        // Draw landmark dot
         ctx.beginPath();
-        ctx.arc(x, y, 5, 0, 2 * Math.PI);
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
         ctx.fill();
         
-        // Add glow effect for key joints
-        const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]; // Important joints
+        // Highlight key joints (shoulders, hips, knees, ankles)
+        const keyJoints = [11, 12, 23, 24, 25, 26, 27, 28];
         if (keyJoints.includes(index)) {
           ctx.shadowColor = '#00FF00';
-          ctx.shadowBlur = 10;
+          ctx.shadowBlur = 8;
           ctx.beginPath();
-          ctx.arc(x, y, 3, 0, 2 * Math.PI);
+          ctx.arc(x, y, 6, 0, 2 * Math.PI);
           ctx.fill();
           ctx.shadowBlur = 0;
+        }
+        
+        if (index < 5) { // Debug first few landmarks
+          console.log(`Landmark ${index} at (${x.toFixed(1)}, ${y.toFixed(1)})`);
         }
       }
     });
 
-  }, [landmarks, videoElement]);
+  }, [landmarks]);
 
   return (
     <canvas
