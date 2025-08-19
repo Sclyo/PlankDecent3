@@ -9,9 +9,25 @@ export default function Startup() {
   const [, setLocation] = useLocation();
   const isMobile = useIsMobile();
 
-  const handleStartSession = () => {
-    // Navigate to setup page for proper plank detection
-    setLocation('/setup');
+  const handleStartSession = async () => {
+    try {
+      // Create session directly and go to coaching
+      const response = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plankType: 'unknown', // Will be detected in coaching
+          userId: null,
+        }),
+      });
+      
+      if (response.ok) {
+        const session = await response.json();
+        setLocation(`/coaching/${session.id}`);
+      }
+    } catch (error) {
+      console.error('Failed to create session:', error);
+    }
   };
 
   return (
