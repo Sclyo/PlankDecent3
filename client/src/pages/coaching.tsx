@@ -61,6 +61,8 @@ export default function Coaching() {
   const sessionStartTime = useRef<number>(0);
   const analysisDataRef = useRef<any[]>([]);
   const recognitionRef = useRef<any>(null);
+  const stablePlankTypeRef = useRef<'high' | 'elbow' | 'unknown'>('unknown');
+  const stablePlankStartTimeRef = useRef<number>(0);
 
   const { currentAnalysis, currentLandmarks, processResults, startAnalysis, stopAnalysis } = usePoseAnalysis({
     onAnalysisUpdate: (analysis) => {
@@ -70,48 +72,51 @@ export default function Coaching() {
         timestamp: Date.now(),
       });
       
-      // Debug current analysis
-      console.log('Pose analysis:', {
-        plankType: analysis.plankType,
-        overallScore: analysis.overallScore,
-        bodyAlignment: analysis.bodyAlignmentScore,
-        hasStarted,
-        landmarks: currentLandmarks.length
-      });
-      
-      // Detection flow: When three indicators have reasonable scores (40+), detect full body AND plank type immediately
-      const hasGoodScores = analysis.bodyAlignmentScore >= 40 && 
-                           analysis.kneePositionScore >= 40 && 
-                           analysis.shoulderStackScore >= 40;
-      
-      // Step 1: Detect full body AND plank type simultaneously when indicators have minimum scores
-      // Also allow detection if plank type is detected even with lower scores
-      if (!fullBodyDetected && ((hasGoodScores && currentLandmarks.length > 0) || 
-          (analysis.plankType !== 'unknown' && analysis.overallScore > 20))) {
-        console.log('🎯 FULL BODY AND PLANK TYPE DETECTED!');
-        setFullBodyDetected(true);
-        setPlankTypeDetected(true);
-        setDetectedPlankType(analysis.plankType);
-        speak('Full body identified', 'high');
+      // Check if position is stable (same plank type for 1 second)
+      if (analysis.plankType !== 'unknown' && 
+          analysis.bodyAlignmentScore >= 40 && 
+          analysis.kneePositionScore >= 40) {
         
-        // Announce plank type immediately after
-        setTimeout(() => {
-          speak(`Plank type: ${analysis.plankType}`, 'high');
-        }, 1500);
-      }
-      
-      // Step 2: Start timer
-      if (fullBodyDetected && plankTypeDetected && !hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 30) {
-        console.log(`🎯 STARTING SESSION! Plank: ${analysis.plankType}, Score: ${analysis.overallScore}`);
-        setHasStarted(true);
-        setIsRunning(true);
-        sessionStartTime.current = Date.now();
-        setLastAnnouncementTime(Date.now());
+        const now = Date.now();
         
-        // Announce timer start after plank type announcement
-        setTimeout(() => {
-          speak('Timer started', 'high');
-        }, 3000);
+        // If plank type changed, reset stability timer
+        if (analysis.plankType !== stablePlankTypeRef.current) {
+          stablePlankTypeRef.current = analysis.plankType;
+          stablePlankStartTimeRef.current = now;
+        }
+        
+        // Check if position has been stable for 1 second
+        const stableForMs = now - stablePlankStartTimeRef.current;
+        
+        // If stable for 1 second and not yet identified
+        if (!plankTypeDetected && stableForMs >= 1000) {
+          setPlankTypeDetected(true);
+          setDetectedPlankType(analysis.plankType);
+          setFullBodyDetected(true);
+          
+          // Announce the specific plank type
+          const announcement = analysis.plankType === 'high' 
+            ? 'High plank identified' 
+            : 'Elbow plank identified';
+          speak(announcement, 'high');
+          
+          // Start timer after identification
+          if (!hasStarted) {
+            setTimeout(() => {
+              setHasStarted(true);
+              setIsRunning(true);
+              sessionStartTime.current = Date.now();
+              setLastAnnouncementTime(Date.now());
+              speak('Timer started', 'high');
+            }, 1500);
+          }
+        }
+      } else {
+        // Reset stability tracking if position is lost
+        if (stablePlankTypeRef.current !== 'unknown') {
+          stablePlankTypeRef.current = 'unknown';
+          stablePlankStartTimeRef.current = 0;
+        }
       }
       
       // Send real-time data via WebSocket
@@ -175,7 +180,6 @@ export default function Coaching() {
               timeAnnouncement = `${seconds} second${seconds !== 1 ? 's' : ''}`;
             }
             
-            console.log(`🎙️ Voice announcement: ${timeAnnouncement}`);
             speak(`${timeAnnouncement} completed. Keep holding!`, 'medium');
             setLastAnnouncementTime(currentTime);
           }
@@ -216,17 +220,14 @@ export default function Coaching() {
       recognition.onresult = (event: any) => {
         const last = event.results.length - 1;
         const transcript = event.results[last][0].transcript.toLowerCase().trim();
-        console.log('Voice command detected:', transcript);
         
         if (transcript.includes('stop')) {
-          console.log('Stop command recognized - ending session');
           handleStop();
         }
       };
       
       recognition.onstart = () => {
         setIsListening(true);
-        console.log('Voice recognition active');
       };
       
       recognition.onend = () => {
@@ -237,7 +238,6 @@ export default function Coaching() {
             try {
               recognition.start();
             } catch (error) {
-              console.log('Recognition restart failed:', error);
             }
           }, 500);
         }
@@ -251,13 +251,11 @@ export default function Coaching() {
       try {
         recognition.start();
       } catch (error) {
-        console.log('Could not start voice recognition:', error);
       }
     } else if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch (error) {
-        console.log('Could not stop voice recognition:', error);
       }
     }
 
@@ -266,7 +264,6 @@ export default function Coaching() {
         try {
           recognitionRef.current.stop();
         } catch (error) {
-          console.log('Cleanup stop failed:', error);
         }
       }
     };

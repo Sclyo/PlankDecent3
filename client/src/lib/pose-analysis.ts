@@ -41,101 +41,48 @@ export function calculateAngle(point1: Landmark, point2: Landmark, point3: Landm
 }
 
 export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unknown' {
-  // Use MediaPipe's 33-point pose landmarks for accurate detection
+  // Get better visible side for arm angle calculation
   const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER];
   const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
   const leftElbow = landmarks[POSE_LANDMARKS.LEFT_ELBOW];
   const rightElbow = landmarks[POSE_LANDMARKS.RIGHT_ELBOW];
   const leftWrist = landmarks[POSE_LANDMARKS.LEFT_WRIST];
   const rightWrist = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
-  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP];
-  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP];
   
-  console.log('Plank detection debug - landmarks available:', {
-    leftShoulder: !!leftShoulder,
-    rightShoulder: !!rightShoulder,
-    leftElbow: !!leftElbow,
-    rightElbow: !!rightElbow,
-    leftWrist: !!leftWrist,
-    rightWrist: !!rightWrist,
-    leftHip: !!leftHip,
-    rightHip: !!rightHip
-  });
-
-  // MediaPipe provides visibility scores - use them for robust detection
-  const keyLandmarks = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist, leftHip, rightHip];
-  if (keyLandmarks.some(landmark => !landmark || (landmark.visibility || 0) < CONFIDENCE_THRESHOLD)) {
+  // Check visibility of each side
+  const leftVisibility = (leftShoulder?.visibility || 0) + (leftElbow?.visibility || 0) + (leftWrist?.visibility || 0);
+  const rightVisibility = (rightShoulder?.visibility || 0) + (rightElbow?.visibility || 0) + (rightWrist?.visibility || 0);
+  
+  // Use the side with better visibility
+  const useLeftSide = leftVisibility > rightVisibility;
+  const shoulder = useLeftSide ? leftShoulder : rightShoulder;
+  const elbow = useLeftSide ? leftElbow : rightElbow;
+  const wrist = useLeftSide ? leftWrist : rightWrist;
+  
+  // Need all three points visible for accurate detection
+  if (!shoulder || !elbow || !wrist || 
+      (shoulder.visibility || 0) < CONFIDENCE_THRESHOLD || 
+      (elbow.visibility || 0) < CONFIDENCE_THRESHOLD || 
+      (wrist.visibility || 0) < CONFIDENCE_THRESHOLD) {
     return 'unknown';
   }
-
-  // Calculate body alignment using MediaPipe's normalized coordinates
-  const shoulderCenter = {
-    x: (leftShoulder.x + rightShoulder.x) / 2,
-    y: (leftShoulder.y + rightShoulder.y) / 2
-  };
-  const hipCenter = {
-    x: (leftHip.x + rightHip.x) / 2,
-    y: (leftHip.y + rightHip.y) / 2
-  };
-  const elbowCenter = {
-    x: (leftElbow.x + rightElbow.x) / 2,
-    y: (leftElbow.y + rightElbow.y) / 2
-  };
-  const wristCenter = {
-    x: (leftWrist.x + rightWrist.x) / 2,
-    y: (leftWrist.y + rightWrist.y) / 2
-  };
-
-  // Check if body is roughly horizontal (plank position)
-  const torsoAngle = Math.atan2(hipCenter.y - shoulderCenter.y, hipCenter.x - shoulderCenter.x) * (180 / Math.PI);
-  const absAngle = Math.abs(torsoAngle);
   
-  console.log('Torso angle:', torsoAngle, 'Abs angle:', absAngle);
+  // Calculate shoulder-elbow-wrist angle for HIGH plank detection
+  const shoulderElbowWristAngle = calculateAngle(shoulder, elbow, wrist);
   
-  // Body should be roughly horizontal (within 45 degrees of horizontal - more forgiving)
-  if (absAngle > 45 && absAngle < 135) {
-    console.log('Body not horizontal enough');
-    return 'unknown';
-  }
-
-  // Check arm configuration using MediaPipe landmarks
-  const shoulderToElbow = Math.sqrt(
-    Math.pow(shoulderCenter.x - elbowCenter.x, 2) + 
-    Math.pow(shoulderCenter.y - elbowCenter.y, 2)
-  );
-  const shoulderToWrist = Math.sqrt(
-    Math.pow(shoulderCenter.x - wristCenter.x, 2) + 
-    Math.pow(shoulderCenter.y - wristCenter.y, 2)
-  );
-  const elbowToWrist = Math.sqrt(
-    Math.pow(elbowCenter.x - wristCenter.x, 2) + 
-    Math.pow(elbowCenter.y - wristCenter.y, 2)
-  );
-
-  // Determine plank type based on arm extension ratio
-  const armExtensionRatio = shoulderToWrist / shoulderToElbow;
-  const forearmLength = elbowToWrist;
+  // Calculate elbow-shoulder-wrist angle for ELBOW plank detection  
+  const elbowShoulderWristAngle = calculateAngle(elbow, shoulder, wrist);
   
-  console.log('Arm detection:', {
-    armExtensionRatio,
-    forearmLength,
-    shoulderToElbow,
-    shoulderToWrist,
-    elbowToWrist
-  });
-  
-  // High plank: arms extended, wrists far from elbows (more forgiving thresholds)
-  if (armExtensionRatio > 1.4 && forearmLength > 0.1) {
-    console.log('Detected HIGH plank');
+  // HIGH PLANK: shoulder-elbow-wrist should be ~180° (± 10°)
+  if (shoulderElbowWristAngle >= 170 && shoulderElbowWristAngle <= 190) {
     return 'high';
   }
-  // Elbow plank: forearms on ground, wrists close to elbows
-  else if (armExtensionRatio < 1.5 && forearmLength < 0.25) {
-    console.log('Detected ELBOW plank');
+  
+  // ELBOW PLANK: elbow-shoulder-wrist should be ~90° (± 15°)
+  if (elbowShoulderWristAngle >= 75 && elbowShoulderWristAngle <= 105) {
     return 'elbow';
   }
-
-  console.log('Could not determine plank type');
+  
   return 'unknown';
 }
 
