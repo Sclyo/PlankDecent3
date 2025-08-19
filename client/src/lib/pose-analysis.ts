@@ -47,30 +47,65 @@ export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unkn
   const rightElbow = landmarks[POSE_LANDMARKS.RIGHT_ELBOW];
   const leftWrist = landmarks[POSE_LANDMARKS.LEFT_WRIST];
   const rightWrist = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP];
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP];
+  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE];
+  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE];
 
-  if (!leftShoulder || !rightShoulder || !leftElbow || !rightElbow || !leftWrist || !rightWrist) {
+  // Require ALL key landmarks for plank detection
+  const requiredLandmarks = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist, leftHip, rightHip, leftKnee, rightKnee];
+  if (requiredLandmarks.some(landmark => !landmark)) {
     return 'unknown';
   }
 
-  // Check visibility - require proper landmarks to detect plank type
-  const avgVisibility = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist]
-    .reduce((sum, landmark) => sum + (landmark.visibility || 0), 0) / 6;
-
-  if (avgVisibility < 0.25) { // Require decent visibility to determine plank type
+  // Check visibility - require good visibility of all key points
+  const avgVisibility = requiredLandmarks.reduce((sum, landmark) => sum + (landmark.visibility || 0), 0) / requiredLandmarks.length;
+  if (avgVisibility < 0.3) {
     return 'unknown';
   }
 
-  // Calculate arm extension
-  const leftArmExtension = Math.abs(leftShoulder.y - leftWrist.y);
-  const rightArmExtension = Math.abs(rightShoulder.y - rightWrist.y);
-  const avgArmExtension = (leftArmExtension + rightArmExtension) / 2;
-
-  const leftElbowExtension = Math.abs(leftShoulder.y - leftElbow.y);
-  const rightElbowExtension = Math.abs(rightShoulder.y - rightElbow.y);
-  const avgElbowExtension = (leftElbowExtension + rightElbowExtension) / 2;
-
-  // If wrists are significantly lower than elbows, it's likely a high plank
-  return avgArmExtension > avgElbowExtension * 1.5 ? 'high' : 'elbow';
+  // FIRST: Check if person is in plank position (roughly horizontal body)
+  const avgShoulder = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+  const avgHip = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+  const avgKnee = { x: (leftKnee.x + rightKnee.x) / 2, y: (leftKnee.y + rightKnee.y) / 2 };
+  
+  // Body should be roughly horizontal - shoulders and hips at similar Y level
+  const shoulderHipYDiff = Math.abs(avgShoulder.y - avgHip.y);
+  const hipKneeYDiff = Math.abs(avgHip.y - avgKnee.y);
+  
+  // If body is too vertical (standing/sitting), not a plank
+  if (shoulderHipYDiff > 0.15 || hipKneeYDiff > 0.2) {
+    return 'unknown';
+  }
+  
+  // SECOND: Check if arms are supporting body weight (hands/elbows below shoulders)
+  const avgElbow = { x: (leftElbow.x + rightElbow.x) / 2, y: (leftElbow.y + rightElbow.y) / 2 };
+  const avgWrist = { x: (leftWrist.x + rightWrist.x) / 2, y: (leftWrist.y + rightWrist.y) / 2 };
+  
+  // Arms should be extended downward from shoulders
+  const shoulderElbowYDiff = avgElbow.y - avgShoulder.y;
+  const shoulderWristYDiff = avgWrist.y - avgShoulder.y;
+  
+  // Both elbows and wrists should be below shoulders for plank position
+  if (shoulderElbowYDiff < 0.05 || shoulderWristYDiff < 0.05) {
+    return 'unknown';
+  }
+  
+  // NOW determine plank type based on arm position
+  // High plank: wrists much lower than elbows (extended arms)
+  // Elbow plank: elbows and wrists at similar level (forearms on ground)
+  const elbowWristYDiff = Math.abs(avgElbow.y - avgWrist.y);
+  
+  // If wrists are significantly lower than elbows = high plank
+  if (shoulderWristYDiff > shoulderElbowYDiff * 1.4 && elbowWristYDiff > 0.1) {
+    return 'high';
+  }
+  // If elbows and wrists are at similar level = elbow plank  
+  else if (elbowWristYDiff < 0.08) {
+    return 'elbow';
+  }
+  
+  return 'unknown';
 }
 
 export function analyzePose(landmarks: Landmark[]): PoseAnalysisResult {
