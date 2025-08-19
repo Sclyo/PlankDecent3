@@ -45,14 +45,23 @@ export default function Coaching() {
         timestamp: Date.now(),
       });
       
-      // Auto-start timer when good pose detected
-      if (!hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 50) {
-        console.log('Good pose detected - starting session!');
+      // Debug current analysis
+      console.log('Pose analysis:', {
+        plankType: analysis.plankType,
+        overallScore: analysis.overallScore,
+        bodyAlignment: analysis.bodyAlignmentScore,
+        hasStarted,
+        landmarks: landmarks.length
+      });
+      
+      // Auto-start timer when good pose detected (lowered threshold)
+      if (!hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 30) {
+        console.log(`🎯 STARTING SESSION! Plank: ${analysis.plankType}, Score: ${analysis.overallScore}`);
         setHasStarted(true);
         setIsRunning(true);
         sessionStartTime.current = Date.now();
         setLastAnnouncementTime(Date.now());
-        speak('Perfect! Session started. Hold your plank position.', 'high');
+        speak(`Perfect! ${analysis.plankType} plank detected. Session started!`, 'high');
       }
       
       // Send real-time data via WebSocket
@@ -99,23 +108,27 @@ export default function Coaching() {
         setSessionTime(elapsed);
         
         // Voice announcement every 10 seconds
-        const currentTime = Date.now();
-        if (currentTime - lastAnnouncementTime >= 10000 && elapsed > 0 && elapsed % 10 === 0) {
-          const minutes = Math.floor(elapsed / 60);
-          const seconds = elapsed % 60;
-          
-          let timeAnnouncement = '';
-          if (minutes > 0) {
-            timeAnnouncement = `${minutes} minute${minutes !== 1 ? 's' : ''}`;
-            if (seconds > 0) {
-              timeAnnouncement += ` ${seconds} second${seconds !== 1 ? 's' : ''}`;
+        if (elapsed > 0 && elapsed % 10 === 0) {
+          const currentTime = Date.now();
+          // Only announce if we haven't announced in the last 5 seconds (prevents duplicates)
+          if (currentTime - lastAnnouncementTime >= 5000) {
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            
+            let timeAnnouncement = '';
+            if (minutes > 0) {
+              timeAnnouncement = `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+              if (seconds > 0) {
+                timeAnnouncement += ` ${seconds} second${seconds !== 1 ? 's' : ''}`;
+              }
+            } else {
+              timeAnnouncement = `${seconds} second${seconds !== 1 ? 's' : ''}`;
             }
-          } else {
-            timeAnnouncement = `${seconds} second${seconds !== 1 ? 's' : ''}`;
+            
+            console.log(`🎙️ Voice announcement: ${timeAnnouncement}`);
+            speak(`${timeAnnouncement} completed. Keep holding!`, 'medium');
+            setLastAnnouncementTime(currentTime);
           }
-          
-          speak(`${timeAnnouncement} completed. Keep holding!`, 'medium');
-          setLastAnnouncementTime(currentTime);
         }
       }, 1000);
     }
@@ -254,7 +267,7 @@ export default function Coaching() {
         {currentLandmarks.length > 0 && (
           <PoseOverlay 
             landmarks={currentLandmarks}
-            videoElement={null}
+            videoElement={undefined}
             className=""
           />
         )}
@@ -279,7 +292,8 @@ export default function Coaching() {
               <div className="text-white">
                 <span className="text-sm text-gray-300">Detected: </span>
                 <span className="font-semibold text-success">
-                  {session?.plankType === 'high' ? 'High Plank' : 'Elbow Plank'}
+                  {currentAnalysis?.plankType === 'high' ? 'High Plank' : 
+                   currentAnalysis?.plankType === 'elbow' ? 'Elbow Plank' : 'Detecting...'}
                 </span>
               </div>
             </Card>
