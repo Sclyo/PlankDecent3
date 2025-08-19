@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(222.2, 84%, 4.9%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(222.2, 84%, 4.9%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(222.2, 84%, 4.9%);
+  --primary: hsl(221.2, 83.2%, 53.3%);
+  --primary-foreground: hsl(210, 40%, 98%);
+  --secondary: hsl(210, 40%, 96%);
+  --secondary-foreground: hsl(222.2, 84%, 4.9%);
+  --muted: hsl(210, 40%, 96%);
+  --muted-foreground: hsl(215.4, 16.3%, 46.9%);
+  --accent: hsl(210, 40%, 96%);
+  --accent-foreground: hsl(222.2, 84%, 4.9%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(210, 40%, 98%);
+  --border: hsl(214.3, 31.8%, 91.4%);
+  --input: hsl(214.3, 31.8%, 91.4%);
+  --ring: hsl(221.2, 83.2%, 53.3%);
+  --chart-1: hsl(12, 76%, 61%);
+  --chart-2: hsl(173, 58%, 39%);
+  --chart-3: hsl(197, 37%, 24%);
+  --chart-4: hsl(43, 74%, 66%);
+  --chart-5: hsl(27, 87%, 67%);
+  --radius: 0.5rem;
+  
+  /* Custom Plank Coach Colors */
+  --success: hsl(158, 76%, 42%);
+  --warning: hsl(43, 96%, 56%);
+  --error: hsl(0, 84%, 60%);
+  --dark-bg: hsl(222, 47%, 11%);
+  --surface: hsl(217, 33%, 17%);
+  --surface-light: hsl(215, 25%, 27%);
+}
+
+.dark {
+  --background: hsl(222.2, 84%, 4.9%);
+  --foreground: hsl(210, 40%, 98%);
+  --card: hsl(222.2, 84%, 4.9%);
+  --card-foreground: hsl(210, 40%, 98%);
+  --popover: hsl(222.2, 84%, 4.9%);
+  --popover-foreground: hsl(210, 40%, 98%);
+  --primary: hsl(217.2, 91.2%, 59.8%);
+  --primary-foreground: hsl(222.2, 84%, 4.9%);
+  --secondary: hsl(217.2, 32.6%, 17.5%);
+  --secondary-foreground: hsl(210, 40%, 98%);
+  --muted: hsl(217.2, 32.6%, 17.5%);
+  --muted-foreground: hsl(215, 20.2%, 65.1%);
+  --accent: hsl(217.2, 32.6%, 17.5%);
+  --accent-foreground: hsl(210, 40%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(210, 40%, 98%);
+  --border: hsl(217.2, 32.6%, 17.5%);
+  --input: hsl(217.2, 32.6%, 17.5%);
+  --ring: hsl(224.3, 76.3%, 94.1%);
+  --chart-1: hsl(220, 70%, 50%);
+  --chart-2: hsl(160, 60%, 45%);
+  --chart-3: hsl(30, 80%, 55%);
+  --chart-4: hsl(280, 65%, 60%);
+  --chart-5: hsl(340, 75%, 55%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-success {
+    color: var(--success);
+  }
+  .text-warning {
+    color: var(--warning);
+  }
+  .text-error {
+    color: var(--error);
+  }
+  .bg-success {
+    background-color: var(--success);
+  }
+  .bg-warning {
+    background-color: var(--warning);
+  }
+  .bg-error {
+    background-color: var(--error);
+  }
+  .bg-dark-bg {
+    background-color: var(--dark-bg);
+  }
+  .bg-surface {
+    background-color: var(--surface);
+  }
+  .bg-surface-light {
+    background-color: var(--surface-light);
+  }
+}
+
+/* Animation for score updates */
+@keyframes scoreUpdate {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.score-update {
+  animation: scoreUpdate 0.3s ease-in-out;
+}
+
+/* Orientation-specific styles */
+@media screen and (orientation: landscape) {
+  .landscape\:p-2 {
+    padding: 0.5rem;
+  }
+  
+  .landscape\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Hide scrollbars for coaching screen */
+.overflow-hidden {
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Camera feed styling */
+video {
+  object-fit: cover;
+}
+
+/* Progress bar custom styling */
+.progress-bar {
+  transition: width 0.3s ease-in-out;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+  .coaching-metrics {
+    transform: scale(0.9);
+  }
+  
+  .coaching-buttons {
+    padding: 0.75rem;
+  }
+}
