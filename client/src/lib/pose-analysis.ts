@@ -99,29 +99,29 @@ export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unkn
   }
 
   // Check arm configuration using MediaPipe landmarks
-  const shoulderToElbowDist = Math.sqrt(
+  const shoulderToElbow = Math.sqrt(
     Math.pow(shoulderCenter.x - elbowCenter.x, 2) + 
     Math.pow(shoulderCenter.y - elbowCenter.y, 2)
   );
-  const shoulderToWristDist = Math.sqrt(
+  const shoulderToWrist = Math.sqrt(
     Math.pow(shoulderCenter.x - wristCenter.x, 2) + 
     Math.pow(shoulderCenter.y - wristCenter.y, 2)
   );
-  const elbowToWristDist = Math.sqrt(
+  const elbowToWrist = Math.sqrt(
     Math.pow(elbowCenter.x - wristCenter.x, 2) + 
     Math.pow(elbowCenter.y - wristCenter.y, 2)
   );
 
   // Determine plank type based on arm extension ratio
-  const armExtensionRatio = shoulderToWristDist / shoulderToElbowDist;
-  const forearmLength = elbowToWristDist;
+  const armExtensionRatio = shoulderToWrist / shoulderToElbow;
+  const forearmLength = elbowToWrist;
   
   console.log('Arm detection:', {
     armExtensionRatio,
     forearmLength,
-    shoulderToElbowDist,
-    shoulderToWristDist,
-    elbowToWristDist
+    shoulderToElbow,
+    shoulderToWrist,
+    elbowToWrist
   });
   
   // High plank: arms extended, wrists far from elbows (more forgiving thresholds)
