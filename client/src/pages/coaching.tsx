@@ -32,17 +32,26 @@ export default function Coaching() {
   const [sessionTime, setSessionTime] = useState(0);
   const [lastFeedbackTime, setLastFeedbackTime] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
+  const [lastAnnouncementTime, setLastAnnouncementTime] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionStartTime = useRef<number>(0);
+  const analysisDataRef = useRef<any[]>([]);
 
   const { currentAnalysis, currentLandmarks, processResults, startAnalysis, stopAnalysis } = usePoseAnalysis({
     onAnalysisUpdate: (analysis) => {
+      // Store analysis data for final calculations
+      analysisDataRef.current.push({
+        ...analysis,
+        timestamp: Date.now(),
+      });
+      
       // Auto-start timer when good pose detected
       if (!hasStarted && analysis.plankType !== 'unknown' && analysis.overallScore > 50) {
         console.log('Good pose detected - starting session!');
         setHasStarted(true);
         setIsRunning(true);
         sessionStartTime.current = Date.now();
+        setLastAnnouncementTime(Date.now());
         speak('Perfect! Session started. Hold your plank position.', 'high');
       }
       
@@ -80,20 +89,41 @@ export default function Coaching() {
     },
   });
 
-  // Timer effect
+  // Timer effect with voice announcements every 10 seconds
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (isRunning) {
+    if (isRunning && hasStarted) {
       interval = setInterval(() => {
-        setSessionTime(Math.floor((Date.now() - sessionStartTime.current) / 1000));
+        const elapsed = Math.floor((Date.now() - sessionStartTime.current) / 1000);
+        setSessionTime(elapsed);
+        
+        // Voice announcement every 10 seconds
+        const currentTime = Date.now();
+        if (currentTime - lastAnnouncementTime >= 10000 && elapsed > 0 && elapsed % 10 === 0) {
+          const minutes = Math.floor(elapsed / 60);
+          const seconds = elapsed % 60;
+          
+          let timeAnnouncement = '';
+          if (minutes > 0) {
+            timeAnnouncement = `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+            if (seconds > 0) {
+              timeAnnouncement += ` ${seconds} second${seconds !== 1 ? 's' : ''}`;
+            }
+          } else {
+            timeAnnouncement = `${seconds} second${seconds !== 1 ? 's' : ''}`;
+          }
+          
+          speak(`${timeAnnouncement} completed. Keep holding!`, 'medium');
+          setLastAnnouncementTime(currentTime);
+        }
       }, 1000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning]);
+  }, [isRunning, hasStarted, lastAnnouncementTime, speak]);
 
   // Always run analysis to detect pose
   useEffect(() => {
@@ -141,15 +171,41 @@ export default function Coaching() {
     stopAnalysis();
     speak('Session completed', 'high');
     
-    // Update session with final data
-    if (currentAnalysis && sessionId) {
+    // Calculate final scores from all analysis data
+    const analysisData = analysisDataRef.current;
+    console.log('Calculating final scores from', analysisData.length, 'data points');
+    
+    if (analysisData.length > 0 && sessionId) {
+      // Calculate averages from all analysis data points
+      const avgBodyAlignment = Math.round(
+        analysisData.reduce((sum, data) => sum + data.bodyAlignmentScore, 0) / analysisData.length
+      );
+      const avgKneePosition = Math.round(
+        analysisData.reduce((sum, data) => sum + data.kneePositionScore, 0) / analysisData.length
+      );
+      const avgShoulderStack = Math.round(
+        analysisData.reduce((sum, data) => sum + data.shoulderStackScore, 0) / analysisData.length
+      );
+      const avgOverallScore = Math.round((avgBodyAlignment + avgKneePosition + avgShoulderStack) / 3);
+      
+      const plankType = analysisData[analysisData.length - 1]?.plankType || 'unknown';
+      
+      console.log('Final scores:', {
+        avgOverallScore,
+        avgBodyAlignment,
+        avgKneePosition, 
+        avgShoulderStack,
+        plankType
+      });
+      
       await updateSession.mutateAsync({
         endTime: new Date(),
         duration: sessionTime,
-        averageScore: currentAnalysis.overallScore,
-        bodyAlignmentScore: currentAnalysis.bodyAlignmentScore,
-        kneePositionScore: currentAnalysis.kneePositionScore,
-        shoulderStackScore: currentAnalysis.shoulderStackScore,
+        averageScore: avgOverallScore,
+        bodyAlignmentScore: avgBodyAlignment,
+        kneePositionScore: avgKneePosition,
+        shoulderStackScore: avgShoulderStack,
+        plankType,
         completed: true,
       });
     }

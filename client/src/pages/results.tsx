@@ -269,7 +269,7 @@ export default function Results() {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button
-            onClick={() => setLocation('/setup')}
+            onClick={() => setLocation('/')}
             className="bg-success hover:bg-success/90 text-white px-8 py-3"
             size="lg"
           >
