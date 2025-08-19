@@ -20,24 +20,27 @@ export function useMediaPipe(): MediaPipeHook {
   useEffect(() => {
     const loadMediaPipe = async () => {
       try {
-        // Dynamically import MediaPipe
+        // Import MediaPipe
         const { Pose } = await import('@mediapipe/pose');
-        const { Camera } = await import('@mediapipe/camera_utils');
         
-        // Initialize Pose
+        // Initialize Pose with local model
         poseRef.current = new Pose({
           locateFile: (file: string) => {
+            // Use local model file for pose_landmarker_full.task
+            if (file === 'pose_landmarker_full.task') {
+              return '/attached_assets/pose_landmarker_full_1755606052928.task';
+            }
             return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
           }
         });
 
         poseRef.current.setOptions({
-          modelComplexity: 0, // Lighter model for mobile performance
+          modelComplexity: 1, // Use full model complexity with local file
           smoothLandmarks: true,
           enableSegmentation: false,
           smoothSegmentation: false,
-          minDetectionConfidence: 0.3, // Lower for better mobile detection
-          minTrackingConfidence: 0.3
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
         });
 
         poseRef.current.onResults((results: any) => {

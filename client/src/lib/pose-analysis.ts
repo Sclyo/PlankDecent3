@@ -41,6 +41,7 @@ export function calculateAngle(point1: Landmark, point2: Landmark, point3: Landm
 }
 
 export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unknown' {
+  // Use MediaPipe's 33-point pose landmarks for accurate detection
   const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER];
   const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
   const leftElbow = landmarks[POSE_LANDMARKS.LEFT_ELBOW];
@@ -49,62 +50,67 @@ export function detectPlankType(landmarks: Landmark[]): 'high' | 'elbow' | 'unkn
   const rightWrist = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
   const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP];
   const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP];
-  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE];
-  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE];
 
-  // Require ALL key landmarks for plank detection
-  const requiredLandmarks = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist, leftHip, rightHip, leftKnee, rightKnee];
-  if (requiredLandmarks.some(landmark => !landmark)) {
+  // MediaPipe provides visibility scores - use them for robust detection
+  const keyLandmarks = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist, leftHip, rightHip];
+  if (keyLandmarks.some(landmark => !landmark || (landmark.visibility || 0) < CONFIDENCE_THRESHOLD)) {
     return 'unknown';
   }
 
-  // Check visibility - require good visibility of all key points
-  const avgVisibility = requiredLandmarks.reduce((sum, landmark) => sum + (landmark.visibility || 0), 0) / requiredLandmarks.length;
-  if (avgVisibility < 0.3) {
+  // Calculate body alignment using MediaPipe's normalized coordinates
+  const shoulderCenter = {
+    x: (leftShoulder.x + rightShoulder.x) / 2,
+    y: (leftShoulder.y + rightShoulder.y) / 2
+  };
+  const hipCenter = {
+    x: (leftHip.x + rightHip.x) / 2,
+    y: (leftHip.y + rightHip.y) / 2
+  };
+  const elbowCenter = {
+    x: (leftElbow.x + rightElbow.x) / 2,
+    y: (leftElbow.y + rightElbow.y) / 2
+  };
+  const wristCenter = {
+    x: (leftWrist.x + rightWrist.x) / 2,
+    y: (leftWrist.y + rightWrist.y) / 2
+  };
+
+  // Check if body is roughly horizontal (plank position)
+  const torsoAngle = Math.atan2(hipCenter.y - shoulderCenter.y, hipCenter.x - shoulderCenter.x) * (180 / Math.PI);
+  const absAngle = Math.abs(torsoAngle);
+  
+  // Body should be roughly horizontal (within 30 degrees of horizontal)
+  if (absAngle > 30 && absAngle < 150) {
     return 'unknown';
   }
 
-  // FIRST: Check if person is in plank position (roughly horizontal body)
-  const avgShoulder = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-  const avgHip = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-  const avgKnee = { x: (leftKnee.x + rightKnee.x) / 2, y: (leftKnee.y + rightKnee.y) / 2 };
+  // Check arm configuration using MediaPipe landmarks
+  const shoulderToElbow = Math.sqrt(
+    Math.pow(shoulderCenter.x - elbowCenter.x, 2) + 
+    Math.pow(shoulderCenter.y - elbowCenter.y, 2)
+  );
+  const shoulderToWrist = Math.sqrt(
+    Math.pow(shoulderCenter.x - wristCenter.x, 2) + 
+    Math.pow(shoulderCenter.y - wristCenter.y, 2)
+  );
+  const elbowToWrist = Math.sqrt(
+    Math.pow(elbowCenter.x - wristCenter.x, 2) + 
+    Math.pow(elbowCenter.y - wristCenter.y, 2)
+  );
+
+  // Determine plank type based on arm extension ratio
+  const armExtensionRatio = shoulderToWrist / shoulderToElbow;
+  const forearmLength = elbowToWrist;
   
-  // Body should be roughly horizontal - shoulders and hips at similar Y level
-  const shoulderHipYDiff = Math.abs(avgShoulder.y - avgHip.y);
-  const hipKneeYDiff = Math.abs(avgHip.y - avgKnee.y);
-  
-  // If body is too vertical (standing/sitting), not a plank
-  if (shoulderHipYDiff > 0.15 || hipKneeYDiff > 0.2) {
-    return 'unknown';
-  }
-  
-  // SECOND: Check if arms are supporting body weight (hands/elbows below shoulders)
-  const avgElbow = { x: (leftElbow.x + rightElbow.x) / 2, y: (leftElbow.y + rightElbow.y) / 2 };
-  const avgWrist = { x: (leftWrist.x + rightWrist.x) / 2, y: (leftWrist.y + rightWrist.y) / 2 };
-  
-  // Arms should be extended downward from shoulders
-  const shoulderElbowYDiff = avgElbow.y - avgShoulder.y;
-  const shoulderWristYDiff = avgWrist.y - avgShoulder.y;
-  
-  // Both elbows and wrists should be below shoulders for plank position
-  if (shoulderElbowYDiff < 0.05 || shoulderWristYDiff < 0.05) {
-    return 'unknown';
-  }
-  
-  // NOW determine plank type based on arm position
-  // High plank: wrists much lower than elbows (extended arms)
-  // Elbow plank: elbows and wrists at similar level (forearms on ground)
-  const elbowWristYDiff = Math.abs(avgElbow.y - avgWrist.y);
-  
-  // If wrists are significantly lower than elbows = high plank
-  if (shoulderWristYDiff > shoulderElbowYDiff * 1.4 && elbowWristYDiff > 0.1) {
+  // High plank: arms extended, wrists far from elbows
+  if (armExtensionRatio > 1.6 && forearmLength > 0.15) {
     return 'high';
   }
-  // If elbows and wrists are at similar level = elbow plank  
-  else if (elbowWristYDiff < 0.08) {
+  // Elbow plank: forearms on ground, wrists close to elbows
+  else if (armExtensionRatio < 1.3 && forearmLength < 0.2) {
     return 'elbow';
   }
-  
+
   return 'unknown';
 }
 
